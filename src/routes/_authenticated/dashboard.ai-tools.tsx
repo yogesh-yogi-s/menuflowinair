@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sparkles, Wand2, Loader2, Check } from "lucide-react";
 import { toast } from "sonner";
+import { createMenuItem } from "@/services/menu";
+import { useAuth } from "@/hooks/use-auth";
 
-export const Route = createFileRoute("/dashboard/ai-tools")({
+export const Route = createFileRoute("/_authenticated/dashboard/ai-tools")({
   component: AITools,
 });
 
@@ -24,10 +27,28 @@ const sampleResults: GeneratedItem[] = [
 ];
 
 function AITools() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<GeneratedItem[]>([]);
   const [addedIdx, setAddedIdx] = useState<Set<number>>(new Set());
+
+  const addMut = useMutation({
+    mutationFn: (item: GeneratedItem) =>
+      createMenuItem({
+        name: item.name,
+        description: item.description,
+        price: item.price,
+        available: true,
+        owner_id: user?.id,
+      }),
+    onSuccess: (_d, item) => {
+      qc.invalidateQueries({ queryKey: ["menu_items"] });
+      toast.success(`"${item.name}" added to menu`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const generate = () => {
     if (!input.trim()) {
@@ -44,8 +65,7 @@ function AITools() {
   };
 
   const handleAdd = (item: GeneratedItem, i: number) => {
-    setAddedIdx((prev) => new Set(prev).add(i));
-    toast.success(`"${item.name}" added to menu`);
+    addMut.mutate(item, { onSuccess: () => setAddedIdx((prev) => new Set(prev).add(i)) });
   };
 
   return (
@@ -102,7 +122,7 @@ function AITools() {
                       size="sm"
                       className="mt-4 w-full"
                       onClick={() => handleAdd(item, i)}
-                      disabled={added}
+                      disabled={added || addMut.isPending}
                     >
                       {added ? (
                         <>
