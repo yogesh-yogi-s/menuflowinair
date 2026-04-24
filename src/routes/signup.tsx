@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Utensils } from "lucide-react";
+import { Utensils, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Sign up — MenuFlow" }] }),
@@ -13,10 +15,23 @@ export const Route = createFileRoute("/signup")({
 
 function SignupPage() {
   const [form, setForm] = useState({ name: "", restaurant_name: "", email: "", password: "" });
+  const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+  const { signUp } = useAuth();
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    setBusy(true);
+    const { error } = await signUp(form.email, form.password, {
+      full_name: form.name,
+      restaurant_name: form.restaurant_name,
+    });
+    setBusy(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Account created — check your email if confirmation is required.");
     navigate({ to: "/dashboard" });
   };
 
@@ -56,7 +71,10 @@ function SignupPage() {
                 <Label htmlFor="password">Password</Label>
                 <Input id="password" type="password" placeholder="••••••••" minLength={6} value={form.password} onChange={update("password")} required />
               </div>
-              <Button type="submit" variant="hero" className="w-full">Create Account</Button>
+              <Button type="submit" variant="hero" className="w-full" disabled={busy}>
+                {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Create Account
+              </Button>
             </form>
 
             <p className="text-center text-sm text-muted-foreground mt-6">

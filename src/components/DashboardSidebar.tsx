@@ -1,7 +1,8 @@
-import { Utensils, LayoutDashboard, Link2, Sparkles, LogOut } from "lucide-react";
+import { Utensils, LayoutDashboard, Link2, Sparkles, LogOut, Shield } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
 import {
   Sidebar,
   SidebarContent,
@@ -25,9 +26,11 @@ export function DashboardSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
+  const { signOut, isAdmin, user } = useAuth();
   const isActive = (path: string) => location.pathname === path;
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    await signOut();
     navigate({ to: "/login" });
   };
 
@@ -60,11 +63,26 @@ export function DashboardSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location.pathname.startsWith("/admin")}>
+                    <Link to="/admin/tables" className="hover:bg-muted/50">
+                      <Shield className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Admin Tables</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
         <div className="mt-auto p-4 space-y-2">
+          {!collapsed && user && (
+            <div className="text-xs text-muted-foreground truncate" title={user.email ?? ""}>
+              {user.email}
+            </div>
+          )}
           <ThemeToggle />
           <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleSignOut}>
             <LogOut className="mr-2 h-4 w-4" />
