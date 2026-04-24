@@ -79,7 +79,7 @@ export async function deleteRecord(table: string, id: string): Promise<void> {
 export async function listTables(): Promise<string[]> {
   const { data, error } = await supabase.rpc("list_tables");
   if (error) throw error;
-  return (data ?? []).map((r) => r.table_name);
+  return (data ?? []).map((r: { table_name: string }) => r.table_name);
 }
 
 export interface ColumnInfo {

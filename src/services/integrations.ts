@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database } from "@/integrations/supabase/database.types";
 
 export type IntegrationRow = Database["public"]["Tables"]["integrations"]["Row"];
 export type IntegrationUpdate = Database["public"]["Tables"]["integrations"]["Update"];

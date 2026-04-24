@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database } from "@/integrations/supabase/database.types";
 
 export type MenuItemRow = Database["public"]["Tables"]["menu_items"]["Row"];
 export type MenuItemInsert = Database["public"]["Tables"]["menu_items"]["Insert"];
