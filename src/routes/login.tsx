@@ -10,8 +10,8 @@ import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Log in — MenuFlow" }] }),
-  validateSearch: (s: Record<string, unknown>) => ({
-    redirect: typeof s.redirect === "string" ? s.redirect : "/dashboard",
+  validateSearch: (s: Record<string, unknown>): { redirect?: string } => ({
+    redirect: typeof s.redirect === "string" ? s.redirect : undefined,
   }),
   component: LoginPage,
 });
@@ -34,7 +34,7 @@ function LoginPage() {
       return;
     }
     toast.success("Signed in");
-    navigate({ to: search.redirect || "/dashboard" });
+    navigate({ to: search.redirect ?? "/dashboard" });
   };
 
   return (
