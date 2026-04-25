@@ -37,14 +37,18 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "Menu flow" },
+      { name: "description", content: "Menu Flow Lauches your Dishes and displays menu list in platforms application." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "Menu flow" },
+      { property: "og:description", content: "Menu Flow Lauches your Dishes and displays menu list in platforms application." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Menu flow" },
+      { name: "twitter:description", content: "Menu Flow Lauches your Dishes and displays menu list in platforms application." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/HcpD7L72IYQqBjqfzwLUoYrvofK2/social-images/social-1777108938347-Firefly_Gemini_Flash_Create_a_website_hero_background_for_a_SaaS_product._Theme-_Speed-to-Market_-_AI-Driv_993794.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/HcpD7L72IYQqBjqfzwLUoYrvofK2/social-images/social-1777108938347-Firefly_Gemini_Flash_Create_a_website_hero_background_for_a_SaaS_product._Theme-_Speed-to-Market_-_AI-Driv_993794.webp" },
     ],
     links: [
       {
