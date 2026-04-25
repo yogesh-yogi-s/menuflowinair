@@ -15,6 +15,7 @@ import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
+import { Route as ApiAiGenerateMenuRouteImport } from './routes/api/ai/generate-menu'
 import { Route as AuthenticatedDashboardIntegrationsRouteImport } from './routes/_authenticated/dashboard.integrations'
 import { Route as AuthenticatedDashboardAiToolsRouteImport } from './routes/_authenticated/dashboard.ai-tools'
 import { Route as AuthenticatedAdminTablesRouteImport } from './routes/_authenticated/admin.tables'
@@ -49,6 +50,11 @@ const AuthenticatedDashboardIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
+const ApiAiGenerateMenuRoute = ApiAiGenerateMenuRouteImport.update({
+  id: '/api/ai/generate-menu',
+  path: '/api/ai/generate-menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedDashboardIntegrationsRoute =
   AuthenticatedDashboardIntegrationsRouteImport.update({
     id: '/integrations',
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/admin/tables': typeof AuthenticatedAdminTablesRoute
   '/dashboard/ai-tools': typeof AuthenticatedDashboardAiToolsRoute
   '/dashboard/integrations': typeof AuthenticatedDashboardIntegrationsRoute
+  '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
 }
 export interface FileRoutesByTo {
@@ -85,6 +92,7 @@ export interface FileRoutesByTo {
   '/admin/tables': typeof AuthenticatedAdminTablesRoute
   '/dashboard/ai-tools': typeof AuthenticatedDashboardAiToolsRoute
   '/dashboard/integrations': typeof AuthenticatedDashboardIntegrationsRoute
+  '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
 }
 export interface FileRoutesById {
@@ -97,6 +105,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/tables': typeof AuthenticatedAdminTablesRoute
   '/_authenticated/dashboard/ai-tools': typeof AuthenticatedDashboardAiToolsRoute
   '/_authenticated/dashboard/integrations': typeof AuthenticatedDashboardIntegrationsRoute
+  '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
 }
 export interface FileRouteTypes {
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/admin/tables'
     | '/dashboard/ai-tools'
     | '/dashboard/integrations'
+    | '/api/ai/generate-menu'
     | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/admin/tables'
     | '/dashboard/ai-tools'
     | '/dashboard/integrations'
+    | '/api/ai/generate-menu'
     | '/dashboard'
   id:
     | '__root__'
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/tables'
     | '/_authenticated/dashboard/ai-tools'
     | '/_authenticated/dashboard/integrations'
+    | '/api/ai/generate-menu'
     | '/_authenticated/dashboard/'
   fileRoutesById: FileRoutesById
 }
@@ -137,6 +149,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  ApiAiGenerateMenuRoute: typeof ApiAiGenerateMenuRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -182,6 +195,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard/'
       preLoaderRoute: typeof AuthenticatedDashboardIndexRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
+    }
+    '/api/ai/generate-menu': {
+      id: '/api/ai/generate-menu'
+      path: '/api/ai/generate-menu'
+      fullPath: '/api/ai/generate-menu'
+      preLoaderRoute: typeof ApiAiGenerateMenuRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/dashboard/integrations': {
       id: '/_authenticated/dashboard/integrations'
@@ -245,6 +265,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  ApiAiGenerateMenuRoute: ApiAiGenerateMenuRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
