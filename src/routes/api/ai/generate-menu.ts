@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createClient } from "@supabase/supabase-js";
 
 interface GeneratedItem {
   name: string;
@@ -12,6 +13,27 @@ export const Route = createFileRoute("/api/ai/generate-menu")({
     handlers: {
       POST: async ({ request }) => {
         try {
+          // --- AuthN: require a valid Supabase session ---
+          const authHeader = request.headers.get("authorization") ?? "";
+          const token = authHeader.toLowerCase().startsWith("bearer ")
+            ? authHeader.slice(7).trim()
+            : "";
+          if (!token) {
+            return Response.json({ error: "Unauthorized" }, { status: 401 });
+          }
+          const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+          const supabaseAnon =
+            process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+          if (!supabaseUrl || !supabaseAnon) {
+            console.error("generate-menu: Supabase env not configured for auth verification");
+            return Response.json({ error: "An unexpected error occurred" }, { status: 500 });
+          }
+          const sb = createClient(supabaseUrl, supabaseAnon);
+          const { data: userData, error: userErr } = await sb.auth.getUser(token);
+          if (userErr || !userData?.user) {
+            return Response.json({ error: "Unauthorized" }, { status: 401 });
+          }
+
           const { prompt } = (await request.json()) as { prompt?: string };
           if (!prompt || typeof prompt !== "string" || prompt.trim().length < 3) {
             return Response.json({ error: "Prompt is required (min 3 chars)" }, { status: 400 });
@@ -108,7 +130,7 @@ export const Route = createFileRoute("/api/ai/generate-menu")({
         } catch (e) {
           console.error("generate-menu error:", e);
           return Response.json(
-            { error: e instanceof Error ? e.message : "Unknown error" },
+            { error: "An unexpected error occurred" },
             { status: 500 },
           );
         }
