@@ -8,6 +8,7 @@ import { Sparkles, Wand2, Loader2, Check, Save } from "lucide-react";
 import { toast } from "sonner";
 import { createMenuItem } from "@/services/menu";
 import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/dashboard/ai-tools")({
   component: AITools,
@@ -54,9 +55,18 @@ function AITools() {
     setAddedIdx(new Set());
     setResults([]);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        toast.error("Please sign in again");
+        return;
+      }
       const res = await fetch("/api/ai/generate-menu", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ prompt: input }),
       });
       const data = await res.json();
