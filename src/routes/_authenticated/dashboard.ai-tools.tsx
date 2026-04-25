@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sparkles, Wand2, Loader2, Check } from "lucide-react";
+import { Sparkles, Wand2, Loader2, Check, Save } from "lucide-react";
 import { toast } from "sonner";
 import { createMenuItem } from "@/services/menu";
 import { useAuth } from "@/hooks/use-auth";
@@ -20,12 +20,6 @@ interface GeneratedItem {
   category: string;
 }
 
-const sampleResults: GeneratedItem[] = [
-  { name: "Grilled Atlantic Salmon", description: "Cedar-plank salmon with lemon herb butter, served over wild rice pilaf and seasonal greens.", price: 26, category: "Mains" },
-  { name: "Truffle Parmesan Fries", description: "Crispy hand-cut fries tossed in white truffle oil and aged parmesan, with rosemary aioli.", price: 11, category: "Starters" },
-  { name: "Mango Lassi Smoothie", description: "Alphonso mango blended with creamy yogurt, cardamom, and a hint of rosewater.", price: 8, category: "Drinks" },
-];
-
 function AITools() {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -33,6 +27,7 @@ function AITools() {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<GeneratedItem[]>([]);
   const [addedIdx, setAddedIdx] = useState<Set<number>>(new Set());
+  const [savingAll, setSavingAll] = useState(false);
 
   const addMut = useMutation({
     mutationFn: (item: GeneratedItem) =>
@@ -50,29 +45,83 @@ function AITools() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const generate = () => {
+  const generate = async () => {
     if (!input.trim()) {
       toast.error("Please enter a menu description");
       return;
     }
     setLoading(true);
     setAddedIdx(new Set());
-    setTimeout(() => {
-      setResults(sampleResults);
+    setResults([]);
+    try {
+      const res = await fetch("/api/ai/generate-menu", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: input }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to generate items");
+        return;
+      }
+      const items: GeneratedItem[] = data.items ?? [];
+      if (items.length === 0) {
+        toast.error("No items generated. Try a different prompt.");
+        return;
+      }
+      setResults(items);
+      toast.success(`Generated ${items.length} menu items`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
       setLoading(false);
-      toast.success("Menu items generated!");
-    }, 1200);
+    }
   };
 
   const handleAdd = (item: GeneratedItem, i: number) => {
     addMut.mutate(item, { onSuccess: () => setAddedIdx((prev) => new Set(prev).add(i)) });
   };
 
+  const saveAll = async () => {
+    if (!user?.id) {
+      toast.error("Not signed in");
+      return;
+    }
+    setSavingAll(true);
+    let saved = 0;
+    const newAdded = new Set(addedIdx);
+    for (let i = 0; i < results.length; i++) {
+      if (newAdded.has(i)) continue;
+      const item = results[i];
+      try {
+        await createMenuItem({
+          name: item.name,
+          description: item.description,
+          price: item.price,
+          available: true,
+          owner_id: user.id,
+        });
+        newAdded.add(i);
+        saved++;
+      } catch (e) {
+        toast.error(`Failed to save "${item.name}": ${(e as Error).message}`);
+      }
+    }
+    setAddedIdx(newAdded);
+    setSavingAll(false);
+    qc.invalidateQueries({ queryKey: ["menu_items"] });
+    if (saved > 0) toast.success(`Saved ${saved} item(s) to menu`);
+  };
+
+  const allAdded = results.length > 0 && addedIdx.size === results.length;
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-display font-bold">AI Menu Optimizer</h1>
-        <p className="text-muted-foreground">Generate professional menu items from a description</p>
+        <h1 className="text-2xl font-display font-bold">AI Menu Generator</h1>
+        <p className="text-muted-foreground">
+          Describe your restaurant or dishes — AI will generate fresh menu items you can save directly.
+        </p>
       </div>
 
       <Card className="border-border/50">
@@ -82,19 +131,24 @@ function AITools() {
             Describe Your Menu
           </CardTitle>
           <CardDescription>
-            Type a brief description of items, or paste a menu. The AI agent will craft polished names, descriptions, prices, and categories.
+            E.g. "Modern Italian trattoria, mid-range, focusing on handmade pasta and seasonal seafood."
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            placeholder="e.g. 'We serve grilled salmon, truffle fries, and mango smoothies. Upscale casual dining.'"
+            placeholder="Describe your cuisine, vibe, signature dishes, price range…"
             rows={4}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={loading}
+            maxLength={2000}
           />
           <Button variant="hero" onClick={generate} disabled={loading}>
-            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+            {loading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Wand2 className="mr-2 h-4 w-4" />
+            )}
             {loading ? "Generating..." : "Generate Menu Items"}
           </Button>
         </CardContent>
@@ -102,16 +156,32 @@ function AITools() {
 
       {results.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-display font-semibold">Generated Items</h2>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h2 className="text-lg font-display font-semibold">Generated Items</h2>
+            <Button onClick={saveAll} disabled={savingAll || allAdded} variant="coral">
+              {savingAll ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              {allAdded ? "All saved" : "Save All to Menu"}
+            </Button>
+          </div>
           <div className="grid md:grid-cols-3 gap-4">
             {results.map((item, i) => {
               const added = addedIdx.has(i);
               return (
-                <Card key={i} className="border-border/50 animate-fade-in" style={{ animationDelay: `${i * 0.1}s` }}>
+                <Card
+                  key={i}
+                  className="border-border/50 animate-fade-in"
+                  style={{ animationDelay: `${i * 0.05}s` }}
+                >
                   <CardHeader className="pb-2">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-base">{item.name}</CardTitle>
-                      <span className="text-lg font-bold text-primary">${item.price.toFixed(2)}</span>
+                      <span className="text-lg font-bold text-primary">
+                        ${item.price.toFixed(2)}
+                      </span>
                     </div>
                     <CardDescription className="text-xs">{item.category}</CardDescription>
                   </CardHeader>
@@ -126,10 +196,10 @@ function AITools() {
                     >
                       {added ? (
                         <>
-                          <Check className="mr-2 h-4 w-4" /> Added
+                          <Check className="mr-2 h-4 w-4" /> Saved
                         </>
                       ) : (
-                        "Add to Menu"
+                        "Save to Menu"
                       )}
                     </Button>
                   </CardContent>
