@@ -1,4 +1,4 @@
-import { Utensils, LayoutDashboard, Link2, Sparkles, LogOut, Shield } from "lucide-react";
+import { Utensils, LayoutDashboard, Link2, Sparkles, LogOut, Shield, User } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ const items = [
   { title: "Menu Management", url: "/dashboard" as const, icon: LayoutDashboard },
   { title: "Integrations", url: "/dashboard/integrations" as const, icon: Link2 },
   { title: "AI Tools", url: "/dashboard/ai-tools" as const, icon: Sparkles },
+  { title: "Profile", url: "/dashboard/profile" as const, icon: User },
 ];
 
 export function DashboardSidebar() {
