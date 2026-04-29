@@ -1,56 +1,24 @@
-## Goal
+## Fix Supabase env vars not loading
 
-Extend the `profiles` table with `email`, `phone`, and `avatar_url`, keep them automatically in sync with Supabase's secure `auth.users` table, and add a Profile settings page where users can view and edit their info, change their email, and change their password.
+The runtime error `supabaseUrl is required` means Vite is starting without `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` in the environment. You've now provided the values, so we'll write them to `.env` at the project root and restart the dev server.
 
-## Important security note
+### Steps
 
-Passwords are NEVER stored in `profiles` (or any custom table). Supabase already stores them as bcrypt hashes inside `auth.users` — that is the only correct place. Duplicating them would be a critical vulnerability. We will only mirror the **email** from auth (for easy querying/display) and let users change email/password through Supabase Auth APIs.
+1. **Create `.env`** at the project root with:
+   ```
+   VITE_SUPABASE_URL=https://hfazhaizygooazflusfm.supabase.co
+   VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhmYXpoYWl6eWdvb2F6Zmx1c2ZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NDI2MzcsImV4cCI6MjA5MjUxODYzN30.nNfOH-2H1BhUfC9Xt1bXhHzy7NtXqpEf1k2-rcKdd44
+   ```
+   Also mirror the values as `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in the same file so server functions / SSR (e.g. `src/routes/api/ai/generate-menu.ts`) can read them via `process.env.*`.
 
-## Schema changes (migration)
+2. **Confirm `.gitignore`** no longer ignores `.env` (was already removed in a prior step). Verify after writing.
 
-Alter `public.profiles`:
-- Add `email text` (unique, will be synced from `auth.users.email`)
-- Add `phone text`
-- Add `avatar_url text`
+3. **Restart the Vite dev server** so the new env vars are picked up. Vite only reads `.env` at startup.
 
-Update the existing `handle_new_user()` trigger function so newly created profiles also receive `email` (and `phone` if available) from `auth.users`.
+4. **Verify in preview**: reload the app, confirm the `supabaseUrl is required` runtime error is gone, and that login/signup still work.
 
-Add a new trigger on `auth.users` for `AFTER UPDATE OF email` that mirrors any email change into `profiles.email`, keeping them in sync if the user changes their email later.
+### Notes
 
-Backfill existing rows: `UPDATE profiles p SET email = u.email FROM auth.users u WHERE p.id = u.id AND p.email IS NULL`.
-
-RLS policies on `profiles` remain unchanged (user can select/update their own row). The `email` column will be updatable only via the trigger pathway in practice — direct edits from the client are blocked because email changes must go through `supabase.auth.updateUser({ email })` (which sends a confirmation email).
-
-## Code changes
-
-**`src/integrations/supabase/database.types.ts`**
-- Add `email`, `phone`, `avatar_url` to the `profiles` Row/Insert/Update types.
-
-**`src/services/profile.ts`**
-- Add `getMyProfile(userId)` — selects the full profile row.
-- Add `updateMyProfile(userId, { full_name, restaurant_name, phone, avatar_url })` — updates only editable fields (NOT email).
-
-**`src/routes/_authenticated/dashboard.profile.tsx`** (new page at `/dashboard/profile`)
-
-Sections:
-1. **Profile info** — form with Full Name, Restaurant Name, Phone, Avatar URL. Save via `updateMyProfile`.
-2. **Email** — read-only display of current email + "Change email" form that calls `supabase.auth.updateUser({ email })`. Shows a toast that a confirmation link was sent to the new address.
-3. **Password** — "Change password" form (new password + confirm) that calls `supabase.auth.updateUser({ password })`. Min 6 chars, both fields must match.
-
-Use existing shadcn `Card`, `Input`, `Label`, `Button`, `sonner` toast — matches the rest of the dashboard styling.
-
-**`src/components/DashboardSidebar.tsx`**
-- Add a "Profile" nav item linking to `/dashboard/profile` (with a `User` icon from lucide-react).
-
-## Files touched
-
-- New SQL migration (alter profiles, update trigger, add email-sync trigger, backfill)
-- New: `src/routes/_authenticated/dashboard.profile.tsx`
-- Edit: `src/integrations/supabase/database.types.ts`
-- Edit: `src/services/profile.ts`
-- Edit: `src/components/DashboardSidebar.tsx`
-
-## Out of scope
-
-- Storing raw passwords anywhere outside `auth.users` (insecure — refused).
-- Avatar file upload to Supabase Storage. The avatar field is a URL string for now; we can add Storage upload as a follow-up if you want.
+- The publishable (anon) key is safe to commit — it's a public key gated by RLS.
+- No code changes needed; `src/integrations/supabase/client.ts` already reads these names correctly.
+- If the error persists after restart, we'll inspect `import.meta.env` at runtime to confirm Vite picked up the file.
