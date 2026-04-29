@@ -16,6 +16,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
 import { Route as ApiAiGenerateMenuRouteImport } from './routes/api/ai/generate-menu'
+import { Route as AuthenticatedDashboardProfileRouteImport } from './routes/_authenticated/dashboard.profile'
 import { Route as AuthenticatedDashboardIntegrationsRouteImport } from './routes/_authenticated/dashboard.integrations'
 import { Route as AuthenticatedDashboardAiToolsRouteImport } from './routes/_authenticated/dashboard.ai-tools'
 import { Route as AuthenticatedAdminTablesRouteImport } from './routes/_authenticated/admin.tables'
@@ -55,6 +56,12 @@ const ApiAiGenerateMenuRoute = ApiAiGenerateMenuRouteImport.update({
   path: '/api/ai/generate-menu',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedDashboardProfileRoute =
+  AuthenticatedDashboardProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
+    getParentRoute: () => AuthenticatedDashboardRoute,
+  } as any)
 const AuthenticatedDashboardIntegrationsRoute =
   AuthenticatedDashboardIntegrationsRouteImport.update({
     id: '/integrations',
@@ -82,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/admin/tables': typeof AuthenticatedAdminTablesRoute
   '/dashboard/ai-tools': typeof AuthenticatedDashboardAiToolsRoute
   '/dashboard/integrations': typeof AuthenticatedDashboardIntegrationsRoute
+  '/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
 }
@@ -92,6 +100,7 @@ export interface FileRoutesByTo {
   '/admin/tables': typeof AuthenticatedAdminTablesRoute
   '/dashboard/ai-tools': typeof AuthenticatedDashboardAiToolsRoute
   '/dashboard/integrations': typeof AuthenticatedDashboardIntegrationsRoute
+  '/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
 }
@@ -105,6 +114,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/tables': typeof AuthenticatedAdminTablesRoute
   '/_authenticated/dashboard/ai-tools': typeof AuthenticatedDashboardAiToolsRoute
   '/_authenticated/dashboard/integrations': typeof AuthenticatedDashboardIntegrationsRoute
+  '/_authenticated/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
 }
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/admin/tables'
     | '/dashboard/ai-tools'
     | '/dashboard/integrations'
+    | '/dashboard/profile'
     | '/api/ai/generate-menu'
     | '/dashboard/'
   fileRoutesByTo: FileRoutesByTo
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/admin/tables'
     | '/dashboard/ai-tools'
     | '/dashboard/integrations'
+    | '/dashboard/profile'
     | '/api/ai/generate-menu'
     | '/dashboard'
   id:
@@ -140,6 +152,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/tables'
     | '/_authenticated/dashboard/ai-tools'
     | '/_authenticated/dashboard/integrations'
+    | '/_authenticated/dashboard/profile'
     | '/api/ai/generate-menu'
     | '/_authenticated/dashboard/'
   fileRoutesById: FileRoutesById
@@ -203,6 +216,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAiGenerateMenuRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/dashboard/profile': {
+      id: '/_authenticated/dashboard/profile'
+      path: '/profile'
+      fullPath: '/dashboard/profile'
+      preLoaderRoute: typeof AuthenticatedDashboardProfileRouteImport
+      parentRoute: typeof AuthenticatedDashboardRoute
+    }
     '/_authenticated/dashboard/integrations': {
       id: '/_authenticated/dashboard/integrations'
       path: '/integrations'
@@ -230,6 +250,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedDashboardRouteChildren {
   AuthenticatedDashboardAiToolsRoute: typeof AuthenticatedDashboardAiToolsRoute
   AuthenticatedDashboardIntegrationsRoute: typeof AuthenticatedDashboardIntegrationsRoute
+  AuthenticatedDashboardProfileRoute: typeof AuthenticatedDashboardProfileRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
 }
 
@@ -238,6 +259,7 @@ const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
     AuthenticatedDashboardAiToolsRoute: AuthenticatedDashboardAiToolsRoute,
     AuthenticatedDashboardIntegrationsRoute:
       AuthenticatedDashboardIntegrationsRoute,
+    AuthenticatedDashboardProfileRoute: AuthenticatedDashboardProfileRoute,
     AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
   }
 
