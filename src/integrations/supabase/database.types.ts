@@ -14,6 +14,9 @@ export interface Database {
           id: string;
           full_name: string | null;
           restaurant_name: string | null;
+          email: string | null;
+          phone: string | null;
+          avatar_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -21,10 +24,16 @@ export interface Database {
           id: string;
           full_name?: string | null;
           restaurant_name?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          avatar_url?: string | null;
         };
         Update: {
           full_name?: string | null;
           restaurant_name?: string | null;
+          email?: string | null;
+          phone?: string | null;
+          avatar_url?: string | null;
         };
         Relationships: [];
       };
