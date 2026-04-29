@@ -1,51 +1,56 @@
-# Plan: Real Integrations CRUD + AI-Powered Menu Generator
+## Goal
 
-## 1. Integrations Page (`src/routes/_authenticated/dashboard.integrations.tsx`)
+Extend the `profiles` table with `email`, `phone`, and `avatar_url`, keep them automatically in sync with Supabase's secure `auth.users` table, and add a Profile settings page where users can view and edit their info, change their email, and change their password.
 
-Convert from passive list to full CRUD bound to the `integrations` table.
+## Important security note
 
-**Behavior**
-- Fetch existing rows for the logged-in user (RLS already filters by `owner_id`) and render each as a card showing platform name, status badge, last-synced time.
-- **Add Integration button** opens a modal listing available platforms (Zomato, Swiggy, UberEats, DoorDash, Grubhub) — only those not already connected are selectable. Selecting one inserts a new row: `{ platform, status: 'connected', enabled: true, owner_id: user.id }`.
-- **Enable toggle** on each card flips the `enabled` column (and updates `status` to `connected`/`disconnected`) via update mutation.
-- **Disconnect button** on each card prompts confirmation, then deletes the row from Supabase.
-- All mutations invalidate the `["integrations"]` query for instant UI refresh; toasts on success/error.
+Passwords are NEVER stored in `profiles` (or any custom table). Supabase already stores them as bcrypt hashes inside `auth.users` — that is the only correct place. Duplicating them would be a critical vulnerability. We will only mirror the **email** from auth (for easy querying/display) and let users change email/password through Supabase Auth APIs.
 
-**Service additions** (`src/services/integrations.ts`)
-- `createIntegration(payload)` — insert a row.
-- `deleteIntegration(id)` — delete a row.
+## Schema changes (migration)
 
-## 2. AI Menu Generator (`src/routes/_authenticated/dashboard.ai-tools.tsx`)
+Alter `public.profiles`:
+- Add `email text` (unique, will be synced from `auth.users.email`)
+- Add `phone text`
+- Add `avatar_url text`
 
-Replace the hardcoded `sampleResults` with a real AI call through the **Lovable AI Gateway** (the project's standard pattern for runtime AI features).
+Update the existing `handle_new_user()` trigger function so newly created profiles also receive `email` (and `phone` if available) from `auth.users`.
 
-**New edge route**: `src/routes/api/ai/generate-menu.ts`
-- POST handler that accepts `{ prompt: string }`.
-- Calls Lovable AI Gateway (`https://ai.gateway.lovable.dev/v1/chat/completions`) with `LOVABLE_API_KEY` from env, model `google/gemini-2.5-flash`, using **tool calling** with a strict JSON schema:
-  ```ts
-  { items: [{ name: string, description: string, price: number, category: string }] }
-  ```
-- System prompt instructs the model to generate brand-new menu items strictly derived from the user's text (cuisine, vibe, price range mentioned).
-- Handles 429/402 with friendly error messages.
-- Returns parsed `items[]` to the client.
+Add a new trigger on `auth.users` for `AFTER UPDATE OF email` that mirrors any email change into `profiles.email`, keeping them in sync if the user changes their email later.
 
-**Frontend changes**
-- Replace `setTimeout` mock with `fetch('/api/ai/generate-menu', { method: 'POST', body: JSON.stringify({ prompt: input }) })`.
-- Render results as cards (already in place) populated from the AI response.
-- Per-card **Save to Menu** button → `createMenuItem({ name, description, price, available: true, owner_id: user.id })`.
-- New **Save All** button → iterates and inserts all generated items, then invalidates `["menu_items"]` and toasts a count.
-- Loading + error states surfaced via toasts and disabled buttons.
+Backfill existing rows: `UPDATE profiles p SET email = u.email FROM auth.users u WHERE p.id = u.id AND p.email IS NULL`.
 
-## 3. Setup notes for the user
+RLS policies on `profiles` remain unchanged (user can select/update their own row). The `email` column will be updatable only via the trigger pathway in practice — direct edits from the client are blocked because email changes must go through `supabase.auth.updateUser({ email })` (which sends a confirmation email).
 
-- **Secret required**: `LOVABLE_API_KEY` — already provisioned in Lovable Cloud sandboxes; if missing the edge route returns a clear error telling you to add it.
-- No database changes needed — `integrations` and `menu_items` tables and RLS already exist from the prior migration.
+## Code changes
 
-## Files to change / create
+**`src/integrations/supabase/database.types.ts`**
+- Add `email`, `phone`, `avatar_url` to the `profiles` Row/Insert/Update types.
 
-- edit  `src/routes/_authenticated/dashboard.integrations.tsx` — cards, add modal, toggle, disconnect
-- edit  `src/services/integrations.ts` — add `createIntegration`, `deleteIntegration`
-- edit  `src/routes/_authenticated/dashboard.ai-tools.tsx` — real AI fetch + Save All
-- create `src/routes/api/ai/generate-menu.ts` — server route calling Lovable AI Gateway
+**`src/services/profile.ts`**
+- Add `getMyProfile(userId)` — selects the full profile row.
+- Add `updateMyProfile(userId, { full_name, restaurant_name, phone, avatar_url })` — updates only editable fields (NOT email).
 
-No schema migrations required.
+**`src/routes/_authenticated/dashboard.profile.tsx`** (new page at `/dashboard/profile`)
+
+Sections:
+1. **Profile info** — form with Full Name, Restaurant Name, Phone, Avatar URL. Save via `updateMyProfile`.
+2. **Email** — read-only display of current email + "Change email" form that calls `supabase.auth.updateUser({ email })`. Shows a toast that a confirmation link was sent to the new address.
+3. **Password** — "Change password" form (new password + confirm) that calls `supabase.auth.updateUser({ password })`. Min 6 chars, both fields must match.
+
+Use existing shadcn `Card`, `Input`, `Label`, `Button`, `sonner` toast — matches the rest of the dashboard styling.
+
+**`src/components/DashboardSidebar.tsx`**
+- Add a "Profile" nav item linking to `/dashboard/profile` (with a `User` icon from lucide-react).
+
+## Files touched
+
+- New SQL migration (alter profiles, update trigger, add email-sync trigger, backfill)
+- New: `src/routes/_authenticated/dashboard.profile.tsx`
+- Edit: `src/integrations/supabase/database.types.ts`
+- Edit: `src/services/profile.ts`
+- Edit: `src/components/DashboardSidebar.tsx`
+
+## Out of scope
+
+- Storing raw passwords anywhere outside `auth.users` (insecure — refused).
+- Avatar file upload to Supabase Storage. The avatar field is a URL string for now; we can add Storage upload as a follow-up if you want.
