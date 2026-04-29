@@ -2,6 +2,7 @@ import { Utensils, LayoutDashboard, Link2, Sparkles, LogOut, Shield, User } from
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Sidebar,
@@ -22,18 +23,31 @@ const items = [
   { title: "Profile", url: "/dashboard/profile" as const, icon: User },
 ];
 
+function getInitials(name?: string | null, email?: string | null): string {
+  const source = (name && name.trim()) || (email && email.split("@")[0]) || "U";
+  const parts = source.trim().split(/\s+/);
+  const letters = parts.length >= 2
+    ? `${parts[0][0]}${parts[1][0]}`
+    : source.slice(0, 2);
+  return letters.toUpperCase();
+}
+
 export function DashboardSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, isAdmin, user } = useAuth();
+  const { signOut, isAdmin, user, profile } = useAuth();
   const isActive = (path: string) => location.pathname === path;
 
   const handleSignOut = async () => {
     await signOut();
     navigate({ to: "/login" });
   };
+
+  const avatarUrl = profile?.avatar_url ?? undefined;
+  const displayName = profile?.full_name ?? undefined;
+  const initials = getInitials(displayName, user?.email);
 
   return (
     <Sidebar collapsible="icon">
@@ -79,10 +93,27 @@ export function DashboardSidebar() {
         </SidebarGroup>
 
         <div className="mt-auto p-4 space-y-2">
-          {!collapsed && user && (
-            <div className="text-xs text-muted-foreground truncate" title={user.email ?? ""}>
-              {user.email}
-            </div>
+          {user && (
+            <Link
+              to="/dashboard/profile"
+              className="flex flex-col items-center gap-2 rounded-md p-2 hover:bg-muted/50 transition-colors"
+              title={displayName || user.email || "Profile"}
+            >
+              <Avatar className={collapsed ? "h-8 w-8" : "h-14 w-14"}>
+                {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName || user.email || "Avatar"} />}
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
+              {!collapsed && (
+                <div className="text-center w-full">
+                  {displayName && (
+                    <div className="text-sm font-medium truncate">{displayName}</div>
+                  )}
+                  <div className="text-xs text-muted-foreground truncate" title={user.email ?? ""}>
+                    {user.email}
+                  </div>
+                </div>
+              )}
+            </Link>
           )}
           <ThemeToggle />
           <Button variant="ghost" size="sm" className="w-full justify-start" onClick={handleSignOut}>
