@@ -18,7 +18,12 @@ import {
   deleteMenuItem,
   type MenuItemRow,
 } from "@/services/menu";
-import { logSync } from "@/services/integrations";
+import {
+  logSync,
+  listIntegrations,
+  listAvailabilityOverrides,
+  setItemPlatformAvailability,
+} from "@/services/integrations";
 import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/_authenticated/dashboard/")({
@@ -48,6 +53,42 @@ function MenuManagement() {
   const { data: items = [], isLoading, error } = useQuery({
     queryKey: ["menu_items"],
     queryFn: listMenuItems,
+  });
+
+  const { data: integrations = [] } = useQuery({
+    queryKey: ["integrations"],
+    queryFn: listIntegrations,
+  });
+
+  const { data: overrides = [] } = useQuery({
+    queryKey: ["availability_overrides"],
+    queryFn: listAvailabilityOverrides,
+  });
+
+  const isOverrideOn = (menuItemId: string, integrationId: string): boolean => {
+    const row = overrides.find(
+      (o) => o.menu_item_id === menuItemId && o.integration_id === integrationId,
+    );
+    return row ? row.available : true;
+  };
+
+  const toggleOverride = useMutation({
+    mutationFn: ({
+      menuItemId,
+      integrationId,
+      available,
+    }: {
+      menuItemId: string;
+      integrationId: string;
+      available: boolean;
+    }) => {
+      const integ = integrations.find((i) => i.id === integrationId);
+      if (!integ) throw new Error("Integration not found");
+      if (!user?.id) throw new Error("Not signed in");
+      return setItemPlatformAvailability(user.id, menuItemId, integ, available);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["availability_overrides"] }),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const createMut = useMutation({
@@ -236,6 +277,7 @@ function MenuManagement() {
                 <TableHead>Item</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead>Available</TableHead>
+                <TableHead>Per-platform</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -256,6 +298,38 @@ function MenuManagement() {
                       checked={item.available}
                       onCheckedChange={(v) => toggleAvail.mutate({ id: item.id, available: v })}
                     />
+                  </TableCell>
+                  <TableCell>
+                    {integrations.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">No integrations</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {integrations.map((integ) => {
+                          const on = isOverrideOn(item.id, integ.id);
+                          return (
+                            <button
+                              key={integ.id}
+                              type="button"
+                              onClick={() =>
+                                toggleOverride.mutate({
+                                  menuItemId: item.id,
+                                  integrationId: integ.id,
+                                  available: !on,
+                                })
+                              }
+                              className={`text-[11px] px-2 py-1 rounded-md border transition-colors ${
+                                on
+                                  ? "bg-success/10 text-success border-success/30"
+                                  : "bg-muted text-muted-foreground border-border line-through"
+                              }`}
+                              title={`${on ? "Available" : "Hidden"} on ${integ.platform}`}
+                            >
+                              {integ.platform}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
