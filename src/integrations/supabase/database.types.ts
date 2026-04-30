@@ -97,6 +97,9 @@ export interface Database {
           last_synced_at: string | null;
           config: Json;
           created_at: string;
+          last_sync_status: string | null;
+          last_sync_message: string | null;
+          external_store_id: string | null;
         };
         Insert: {
           owner_id?: string;
@@ -105,6 +108,9 @@ export interface Database {
           enabled?: boolean;
           last_synced_at?: string | null;
           config?: Json;
+          last_sync_status?: string | null;
+          last_sync_message?: string | null;
+          external_store_id?: string | null;
         };
         Update: {
           platform?: string;
@@ -112,6 +118,9 @@ export interface Database {
           enabled?: boolean;
           last_synced_at?: string | null;
           config?: Json;
+          last_sync_status?: string | null;
+          last_sync_message?: string | null;
+          external_store_id?: string | null;
         };
         Relationships: [];
       };
@@ -133,6 +142,59 @@ export interface Database {
         Update: {
           status?: SyncStatus;
           message?: string | null;
+        };
+        Relationships: [];
+      };
+      platform_orders: {
+        Row: {
+          id: string;
+          owner_id: string;
+          integration_id: string;
+          platform: string;
+          external_order_id: string;
+          status: string;
+          customer_name: string | null;
+          total: number;
+          items: Json;
+          placed_at: string;
+          created_at: string;
+        };
+        Insert: {
+          owner_id?: string;
+          integration_id: string;
+          platform: string;
+          external_order_id: string;
+          status?: string;
+          customer_name?: string | null;
+          total?: number;
+          items?: Json;
+          placed_at?: string;
+        };
+        Update: {
+          status?: string;
+          customer_name?: string | null;
+          total?: number;
+          items?: Json;
+        };
+        Relationships: [];
+      };
+      menu_item_availability: {
+        Row: {
+          id: string;
+          owner_id: string;
+          menu_item_id: string;
+          integration_id: string;
+          available: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          owner_id?: string;
+          menu_item_id: string;
+          integration_id: string;
+          available?: boolean;
+        };
+        Update: {
+          available?: boolean;
         };
         Relationships: [];
       };
