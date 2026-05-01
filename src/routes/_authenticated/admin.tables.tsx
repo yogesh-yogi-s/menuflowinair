@@ -55,9 +55,11 @@ function AdminTables() {
       getAll(active!, {
         page,
         pageSize: PAGE_SIZE,
-        orderBy: { column: "created_at", ascending: false },
+        orderBy: hasCreatedAt
+          ? { column: "created_at", ascending: false }
+          : { column: "id", ascending: false },
       }),
-    enabled: !!active && isAdmin,
+    enabled: !!active && isAdmin && !columnsQ.isLoading,
   });
 
   const editableCols = useMemo(
@@ -65,6 +67,11 @@ function AdminTables() {
       (columnsQ.data ?? []).filter(
         (c) => !["id", "created_at", "updated_at"].includes(c.column_name),
       ),
+    [columnsQ.data],
+  );
+
+  const hasCreatedAt = useMemo(
+    () => (columnsQ.data ?? []).some((c) => c.column_name === "created_at"),
     [columnsQ.data],
   );
 
