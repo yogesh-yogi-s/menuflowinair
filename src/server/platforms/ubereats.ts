@@ -27,13 +27,18 @@ export function createUberEatsAdapter(): PlatformAdapter {
 
   return {
     async connect(input: ConnectInput): Promise<ConnectResult> {
+      // Prefer the new credentials map, fall back to legacy fields.
+      const c = input.credentials ?? {};
+      const clientId = c.client_id || input.clientId;
+      const clientSecret = c.client_secret || input.clientSecret;
+      const storeId = c.store_uuid || input.storeId;
       // If user provides real OAuth fields, accept them and return a fake token.
       // (Real call: POST https://login.uber.com/oauth/v2/token grant_type=client_credentials)
-      if (input.clientId && input.clientSecret) {
+      if (clientId && clientSecret) {
         return {
-          access_token: `uber_real_${input.clientId.slice(0, 8)}`,
-          store_id: input.storeId || "uber_store_default",
-          webhook_secret: input.clientSecret.slice(0, 16),
+          access_token: `uber_real_${clientId.slice(0, 8)}`,
+          store_id: storeId || "uber_store_default",
+          webhook_secret: clientSecret.slice(0, 16),
         };
       }
       return mock.connect(input);

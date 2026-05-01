@@ -31,6 +31,19 @@ export function createMockAdapter(platform: PlatformId): PlatformAdapter {
   return {
     async connect(input: ConnectInput): Promise<ConnectResult> {
       await delay(400);
+      // Real-credentials mode: if the user supplied any non-empty credential
+      // values, accept them and skip the demo-key check. We don't actually
+      // call the real API here — this is a stub so the UI flows end-to-end.
+      const realCreds = input.credentials ?? {};
+      const hasReal = Object.values(realCreds).some((v) => v && v.trim().length > 0);
+      if (hasReal) {
+        return {
+          access_token: rid("real_tok"),
+          store_id: realCreds.store_id || realCreds.store_uuid || realCreds.restaurant_id || rid("store"),
+          webhook_secret: rid("whsec"),
+          expires_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30).toISOString(),
+        };
+      }
       const expected = demoKeyFor(platform);
       if (input.apiKey?.trim() !== expected) {
         throw new Error(`Invalid API key for ${platform}. Use "${expected}" for the demo.`);
