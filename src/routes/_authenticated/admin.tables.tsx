@@ -49,8 +49,13 @@ function AdminTables() {
     enabled: !!active && isAdmin,
   });
 
+  const hasCreatedAt = useMemo(
+    () => (columnsQ.data ?? []).some((c) => c.column_name === "created_at"),
+    [columnsQ.data],
+  );
+
   const rowsQ = useQuery({
-    queryKey: ["admin", "rows", active, page, search],
+    queryKey: ["admin", "rows", active, page, search, hasCreatedAt],
     queryFn: () =>
       getAll(active!, {
         page,
@@ -67,11 +72,6 @@ function AdminTables() {
       (columnsQ.data ?? []).filter(
         (c) => !["id", "created_at", "updated_at"].includes(c.column_name),
       ),
-    [columnsQ.data],
-  );
-
-  const hasCreatedAt = useMemo(
-    () => (columnsQ.data ?? []).some((c) => c.column_name === "created_at"),
     [columnsQ.data],
   );
 
