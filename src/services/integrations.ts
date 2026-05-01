@@ -60,6 +60,10 @@ export interface IntegrationConfig {
   access_token?: string;
   webhook_secret?: string;
   expires_at?: string;
+  /** Real per-platform credentials, when the user supplied them. */
+  credentials?: Record<string, string>;
+  /** "real" | "demo" — how this integration was connected. */
+  mode?: "real" | "demo";
 }
 
 export async function connectPlatform(
@@ -70,10 +74,14 @@ export async function connectPlatform(
   const adapter = getAdapter(platform);
   const result = await adapter.connect(credentials); // throws on bad key
 
+  const real = credentials.credentials ?? {};
+  const isReal = Object.values(real).some((v) => v && v.trim().length > 0);
   const config: IntegrationConfig = {
     access_token: result.access_token,
     webhook_secret: result.webhook_secret,
     expires_at: result.expires_at,
+    credentials: isReal ? real : undefined,
+    mode: isReal ? "real" : "demo",
   };
 
   const { data, error } = await supabase

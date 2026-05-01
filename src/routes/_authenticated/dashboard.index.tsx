@@ -16,6 +16,7 @@ import {
   createMenuItem,
   updateMenuItem,
   deleteMenuItem,
+  listCategories,
   type MenuItemRow,
 } from "@/services/menu";
 import {
@@ -25,6 +26,8 @@ import {
   setItemPlatformAvailability,
 } from "@/services/integrations";
 import { useAuth } from "@/hooks/use-auth";
+import { CategoryManager } from "@/components/menu/CategoryManager";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/dashboard/")({
   component: MenuManagement,
@@ -35,11 +38,11 @@ interface FormState {
   name: string;
   description: string;
   price: number;
-  category: string;
+  category_id: string;
   available: boolean;
 }
 
-const emptyForm: FormState = { name: "", description: "", price: 0, category: "", available: true };
+const emptyForm: FormState = { name: "", description: "", price: 0, category_id: "", available: true };
 
 function MenuManagement() {
   const qc = useQueryClient();
@@ -53,6 +56,11 @@ function MenuManagement() {
   const { data: items = [], isLoading, error } = useQuery({
     queryKey: ["menu_items"],
     queryFn: listMenuItems,
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["categories"],
+    queryFn: listCategories,
   });
 
   const { data: integrations = [] } = useQuery({
@@ -99,8 +107,7 @@ function MenuManagement() {
         price: form.price,
         available: form.available,
         owner_id: user?.id,
-        // Category is stored as a free-form string in this simple UI.
-        // For category_id linking, switch to listCategories() + a select.
+        category_id: form.category_id || null,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["menu_items"] });
@@ -117,6 +124,7 @@ function MenuManagement() {
         description: form.description || null,
         price: form.price,
         available: form.available,
+        category_id: form.category_id || null,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["menu_items"] });
@@ -155,7 +163,7 @@ function MenuManagement() {
       name: item.name,
       description: item.description ?? "",
       price: Number(item.price),
-      category: "",
+      category_id: item.category_id ?? "",
       available: item.available,
     });
     setIsOpen(true);
@@ -222,6 +230,32 @@ function MenuManagement() {
                     value={form.price}
                     onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Category</Label>
+                  <Select
+                    value={form.category_id || "__none"}
+                    onValueChange={(v) =>
+                      setForm({ ...form, category_id: v === "__none" ? "" : v })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Uncategorized" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">Uncategorized</SelectItem>
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {categories.length === 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      No categories yet — add some below the table to group your items.
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center justify-between">
                   <Label>Available</Label>
@@ -357,6 +391,8 @@ function MenuManagement() {
       {!isLoading && filtered.length > 0 && (
         <Badge variant="secondary">{filtered.length} item(s)</Badge>
       )}
+
+      <CategoryManager />
     </div>
   );
 }

@@ -40,3 +40,28 @@ export async function listCategories(): Promise<CategoryRow[]> {
   if (error) throw error;
   return data ?? [];
 }
+
+export type CategoryInsert = Database["public"]["Tables"]["categories"]["Insert"];
+export type CategoryUpdate = Database["public"]["Tables"]["categories"]["Update"];
+
+export async function createCategory(payload: CategoryInsert): Promise<CategoryRow> {
+  const { data, error } = await supabase.from("categories").insert(payload).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateCategory(id: string, payload: CategoryUpdate): Promise<CategoryRow> {
+  const { data, error } = await supabase
+    .from("categories")
+    .update(payload)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+  const { error } = await supabase.from("categories").delete().eq("id", id);
+  if (error) throw error;
+}

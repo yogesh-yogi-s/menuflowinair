@@ -1,160 +1,101 @@
-# Plan: Real-world Integrations — mock for 5 platforms + UberEats sandbox stub
+## Goals
 
-You picked **mocks for all 5 + a real UberEats stub** with **full features** (menu sync, orders, availability toggle). Here's what I'll build.
-
----
-
-## 1. Database changes
-
-New SQL migration `integrations_full_setup.sql`:
-
-**Add to `integrations`:**
-- `last_sync_status text` — `success | error | null`
-- `last_sync_message text`
-- `external_store_id text` — the platform's store ID after connect
-
-**New table `platform_orders`:**
-- `id uuid pk`, `owner_id uuid`, `integration_id uuid fk`
-- `platform text`, `external_order_id text`
-- `status text` — `received | preparing | ready | delivered | cancelled`
-- `customer_name text`, `total numeric`, `items jsonb`
-- `placed_at timestamptz`, `created_at timestamptz`
-- Unique on `(integration_id, external_order_id)`
-
-**New table `menu_item_availability`:**
-- `id`, `owner_id`, `menu_item_id fk`, `integration_id fk`
-- `available boolean default true`
-- Unique on `(menu_item_id, integration_id)` — per-platform override
-
-RLS on all: owner-only via `auth.uid() = owner_id`.
+1. Let users enter **real platform credentials** (per-platform, with the field names each platform actually uses on its developer portal). If left blank, fall back to the existing mock flow.
+2. Fix the admin tables error: `menu_item_availability.created_at does not exist`.
+3. Fix the empty **Categories** table in admin and explain what it's for.
 
 ---
 
-## 2. Adapter layer (`src/server/platforms/`)
+## 1. Real-credential forms per platform
 
-**`types.ts`** — defines `PlatformAdapter`:
-```ts
-interface PlatformAdapter {
-  connect(creds): Promise<{ access_token; store_id; expires_at? }>
-  syncMenu(ctx, items): Promise<{ pushed: number; failed: number }>
-  fetchOrders(ctx): Promise<PlatformOrder[]>
-  setAvailability(ctx, itemId, available): Promise<void>
-  verifyWebhook(headers, rawBody): boolean
-}
+Today only UberEats has a real-credential block. The connect dialog only collects an `apiKey` for the others. I'll define a per-platform credential schema using the **exact field labels each platform uses on its real developer portal**, then render a dynamic form in `dashboard.integrations.tsx`.
+
+**Field schema (`src/server/platforms/credentials.ts`, new):**
+
+| Platform | Real fields (portal labels) | Where users get them |
+|---|---|---|
+| UberEats | `Client ID`, `Client Secret`, `Store UUID` | developer.uber.com → Eats app |
+| DoorDash | `Developer ID`, `Key ID`, `Signing Secret`, `Store ID` | developer.doordash.com → Drive/Marketplace app |
+| Grubhub | `Client ID`, `Client Secret`, `Restaurant ID` | Grubhub for Restaurants → API access |
+| Zomato | `API Key`, `Restaurant ID` | partners.zomato.com (legacy partner API) |
+| Swiggy | `Partner API Key`, `Restaurant ID` | partner.swiggy.com → Integrations |
+
+Each field has: `name`, `label`, `type` (`text` | `password`), `placeholder`, `required`, `helpUrl`.
+
+**UI changes (`dashboard.integrations.tsx`):**
+- Replace the single `apiKey` input + the UberEats-only block with a generic `<CredentialForm platform={picked} values={...} />` driven by the schema above.
+- Top of the form: a toggle **"I have real credentials"** vs **"Continue with demo"**.
+  - Demo mode: fills `apiKey` with `demoKeyFor(platform)` and disables the real fields. Clicking Connect uses the existing mock adapter — unchanged behavior.
+  - Real mode: shows the platform-specific fields with the labels from the table above, plus a small "Where do I find these?" link (`helpUrl`).
+- Submit posts the collected values to `connectPlatform(...)`.
+
+**Type + adapter changes:**
+- Extend `ConnectInput` in `src/server/platforms/types.ts` with an open-ended `credentials?: Record<string, string>` map (keeps existing `apiKey`/`clientId`/`clientSecret`/`storeId` for back-compat).
+- Update `createMockAdapter`: if `credentials` is non-empty (real mode), accept any non-empty values and skip the demo-key check, returning a fake but realistic-looking token. If `credentials` is empty, keep the current `demo-<platform>-key` validation.
+- `createUberEatsAdapter`: read from `credentials.client_id / client_secret / store_uuid` first, fall back to existing fields.
+- Add stub adapters for DoorDash and Grubhub later if needed; for now the mock with real-mode pass-through is enough.
+
+**Storage:** Real credentials are stored encrypted-at-rest by Supabase as part of `integrations.config` (jsonb). We'll store `credentials` under `config.credentials` and never log them. Webhook URL/secret display in the card stays as is.
+
+---
+
+## 2. Fix `menu_item_availability.created_at does not exist`
+
+The `get_columns` RPC orders by something that assumes `created_at`, and the admin UI also passes `orderBy: { column: "created_at" }` to `getAll`, which fails on tables that don't have it. The migration `integrations_full_setup.sql` defines `menu_item_availability` with only `updated_at`, no `created_at`.
+
+**Two fixes (apply both):**
+
+**a) Add the missing column** — new migration `add_created_at_to_menu_item_availability.sql`:
+```sql
+alter table public.menu_item_availability
+  add column if not exists created_at timestamptz not null default now();
 ```
 
-**`mock.ts`** — talks to our own `/api/platforms/*` routes. Simulates latency, occasional failures, generates fake orders. Used for Zomato, Swiggy, DoorDash, Grubhub, and UberEats-when-no-creds.
-
-**`ubereats.ts`** — real adapter shell:
-- `connect`: OAuth2 client_credentials against `https://login.uber.com/oauth/v2/token`
-- `syncMenu`: PUT `https://api.uber.com/v1/eats/stores/{store_id}/menus`
-- `fetchOrders`: GET `https://api.uber.com/v2/eats/orders`
-- `verifyWebhook`: HMAC-SHA256 with client secret
-- Reads `UBER_CLIENT_ID`, `UBER_CLIENT_SECRET` from `process.env` if set; otherwise falls back to mock adapter so the UI never breaks.
-
-**`index.ts`** — `getAdapter(platform)` returns the right one. UberEats picks real-vs-mock based on env presence.
+**b) Make admin table viewer resilient** — in `src/routes/_authenticated/admin.tables.tsx`, only pass `orderBy: created_at` when the active table's columns include `created_at`; otherwise order by `id`. This prevents the same crash for any future table without `created_at`.
 
 ---
 
-## 3. Mock platform server routes (`src/routes/api/platforms/`)
+## 3. Categories section is empty — explanation + fix
 
-These ARE the fake "Zomato/Swiggy/etc" backend:
+**Purpose of `categories`:** groups menu items (e.g. "Starters", "Mains", "Desserts", "Drinks"). Each `menu_items` row has an optional `category_id` referencing `categories.id`. This is what powers section headers on a public menu, filtering in the dashboard menu page, and per-section sync to delivery platforms.
 
-- **`connect.ts`** POST — accepts `{ platform, apiKey }`, validates `apiKey === "demo-<platform>-key"`, returns `{ access_token, store_id: "store_<rand>" }`.
-- **`menu.ts`** PUT — accepts `{ store_id, items[] }`, returns `{ pushed, failed }` with 5% random failure for realism.
-- **`orders.ts`** GET — returns 3–8 fake orders generated from current menu items.
-- **`availability.ts`** POST — accepts `{ store_id, item_id, available }`, returns ok.
+**Why it appears empty in admin:** the table has zero rows because no UI ever creates categories — the menu page lets you create items but not categories. So when you click "categories" in the admin tables sidebar, it correctly shows 0 rows.
 
-**`src/routes/api/public/webhook.$platform.ts`** POST — public webhook receiver. Verifies HMAC signature using a per-integration `webhook_secret` stored in `integrations.config`, then inserts into `platform_orders`. Mirrors how UberEats/DoorDash actually push orders.
+**Fix in this round:**
+- Add a small **Categories manager** to `dashboard.menu.tsx`: list existing categories, add new (name + sort_order), rename, delete (with confirm if items are still attached).
+- In the menu item create/edit dialog, replace the free-text/empty category selector with a `<Select>` populated from the categories list, plus an inline "New category…" option.
+- Service helpers go in `src/services/menu.ts` (`createCategory`, `updateCategory`, `deleteCategory`).
 
----
-
-## 4. Server functions (`src/server/integrations.functions.ts`)
-
-Called from the UI via `useServerFn`:
-
-- `connectPlatform({ platform, credentials })` — calls adapter.connect, stores token + store_id + generated webhook_secret in `integrations.config` (encrypted via `INTEGRATIONS_ENC_KEY`), sets status `connected`.
-- `syncMenuToIntegration({ integrationId })` — pulls user's menu items, calls adapter.syncMenu, writes `sync_logs`, updates `last_sync_status`/`last_synced_at`.
-- `fetchOrdersForIntegration({ integrationId })` — calls adapter.fetchOrders, upserts into `platform_orders`.
-- `togglePlatformAvailability({ menuItemId, integrationId, available })` — calls adapter.setAvailability, upserts `menu_item_availability`.
-- `disconnectPlatform({ integrationId })` — clears tokens, deletes row.
-
-All use `requireSupabaseAuth` middleware so RLS applies.
+This way Categories stops being a dead table and becomes meaningful: items grouped → cleaner menu UI → cleaner platform syncs.
 
 ---
 
-## 5. UI changes
+## Files to create / edit
 
-### `src/routes/_authenticated/dashboard.integrations.tsx`
-- "Add Integration" dialog → after platform pick, show **connect form**:
-  - Mock platforms: API key input pre-filled with `demo-zomato-key` (etc.) + "Use demo key" button.
-  - UberEats: shows whether real creds detected; if not, says "Using sandbox mock — add `UBER_CLIENT_ID`/`UBER_CLIENT_SECRET` secrets for real Uber API."
-- Each connected card gets:
-  - **Sync menu** button → toast with pushed/failed counts
-  - **Fetch orders** button → toast with new-order count, links to Orders page
-  - Last sync status badge (green/red) with timestamp + last 3 log lines (collapsible)
-  - **Webhook URL** display: `https://menuflowinair.lovable.app/api/public/webhook/<platform>` + copy button + reveal-secret
+**New**
+- `src/server/platforms/credentials.ts` — per-platform field schemas
+- `src/components/integrations/CredentialForm.tsx` — generic dynamic form
+- `add_created_at_to_menu_item_availability.sql` — migration
+- `src/components/menu/CategoryManager.tsx` — list/add/edit/delete categories
 
-### New `src/routes/_authenticated/dashboard.orders.tsx`
-- Lists rows from `platform_orders`, filterable by platform/status.
-- Status dropdown per row (preparing → ready → delivered).
-- Sidebar nav entry added.
-
-### Edit `src/routes/_authenticated/dashboard.menu.tsx` (or wherever menu items are listed)
-- Per-item, per-platform availability toggles (a small grid of platform chips on each menu row). Calls `togglePlatformAvailability`.
+**Edited**
+- `src/server/platforms/types.ts` — add `credentials` map to `ConnectInput`
+- `src/server/platforms/mock.ts` — accept real credentials and skip demo-key check when present
+- `src/server/platforms/ubereats.ts` — read from `credentials` map
+- `src/routes/_authenticated/dashboard.integrations.tsx` — demo/real toggle + dynamic form
+- `src/routes/_authenticated/admin.tables.tsx` — guard `orderBy` against missing `created_at`
+- `src/routes/_authenticated/dashboard.menu.tsx` — mount CategoryManager + use category Select
+- `src/services/menu.ts` — category CRUD helpers
 
 ---
 
-## 6. Secrets
+## Action required from you after I implement
 
-I'll add via the secrets tool:
-- `INTEGRATIONS_ENC_KEY` (auto-generated, for at-rest token encryption in `integrations.config`)
-- `UBER_CLIENT_ID` (optional, you fill in when you have sandbox creds)
-- `UBER_CLIENT_SECRET` (optional)
-- `UBER_WEBHOOK_SIGNING_SECRET` (optional)
+Run the new migration in your Supabase SQL editor:
 
-Until UberEats secrets are filled in, that adapter falls back to mock — UI works end-to-end immediately.
+```sql
+alter table public.menu_item_availability
+  add column if not exists created_at timestamptz not null default now();
+```
 
----
-
-## 7. Docs
-
-`INTEGRATIONS.md` at project root:
-- Demo keys table (`demo-zomato-key`, etc.)
-- How to test the webhook locally with `curl` + signature
-- Steps to apply for real UberEats / DoorDash sandbox credentials with links
-- Where each adapter lives and how to add a new platform
-
----
-
-## File changes summary
-
-**New (15)**
-- `integrations_full_setup.sql`
-- `src/server/platforms/{types,mock,ubereats,index}.ts`
-- `src/server/integrations.server.ts`
-- `src/server/integrations.functions.ts`
-- `src/routes/api/platforms/{connect,menu,orders,availability}.ts`
-- `src/routes/api/public/webhook.$platform.ts`
-- `src/routes/_authenticated/dashboard.orders.tsx`
-- `INTEGRATIONS.md`
-
-**Edited (5)**
-- `src/routes/_authenticated/dashboard.integrations.tsx`
-- `src/routes/_authenticated/dashboard.menu.tsx` (per-platform availability)
-- `src/components/DashboardSidebar.tsx` (Orders nav entry)
-- `src/services/integrations.ts` (route through new server fns)
-- `src/integrations/supabase/database.types.ts` (new tables/columns)
-
----
-
-## After implementation you'll be able to
-
-1. Open Integrations → Add → pick Zomato → click "Use demo key" → connected ✅
-2. Click **Sync menu** → toast: "Pushed 12 items to Zomato" → log row appears
-3. Click **Fetch orders** → 5 fake orders show up in /dashboard/orders
-4. Toggle "Available on Swiggy" off for one menu item → reflected per-platform
-5. `curl` the webhook URL with a valid signature → new order appears live
-6. Drop real `UBER_CLIENT_ID` into secrets → UberEats card silently switches to real Uber sandbox API, no code change
-
-Approve to implement.
+Then the admin tables view for `menu_item_availability` will load, and the Categories tab will start filling up as you add categories from the menu page.

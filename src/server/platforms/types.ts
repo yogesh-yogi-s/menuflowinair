@@ -13,6 +13,8 @@ export interface ConnectInput {
   clientId?: string;
   clientSecret?: string;
   storeId?: string;
+  /** Generic per-platform real credentials map (preferred for new code). */
+  credentials?: Record<string, string>;
 }
 
 export interface ConnectResult {

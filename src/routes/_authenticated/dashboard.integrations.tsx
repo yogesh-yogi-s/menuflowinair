@@ -44,6 +44,7 @@ import {
 import { listMenuItems } from "@/services/menu";
 import { useAuth } from "@/hooks/use-auth";
 import { ALL_PLATFORMS, demoKeyFor, type PlatformId } from "@/server/platforms";
+import { CredentialForm, isCredentialFormComplete } from "@/components/integrations/CredentialForm";
 
 export const Route = createFileRoute("/_authenticated/dashboard/integrations")({
   component: Integrations,
@@ -69,9 +70,8 @@ function Integrations() {
   const [addOpen, setAddOpen] = useState(false);
   const [picked, setPicked] = useState<PlatformId | null>(null);
   const [apiKey, setApiKey] = useState("");
-  const [uberClientId, setUberClientId] = useState("");
-  const [uberClientSecret, setUberClientSecret] = useState("");
-  const [uberStoreId, setUberStoreId] = useState("");
+  const [mode, setMode] = useState<"demo" | "real">("demo");
+  const [creds, setCreds] = useState<Record<string, string>>({});
 
   const { data: items = [], isLoading, error } = useQuery({
     queryKey: ["integrations"],
@@ -97,12 +97,13 @@ function Integrations() {
     mutationFn: async () => {
       if (!picked) throw new Error("Pick a platform first");
       if (!user?.id) throw new Error("Not signed in");
-      return connectPlatform(picked, user.id, {
-        apiKey,
-        clientId: uberClientId || undefined,
-        clientSecret: uberClientSecret || undefined,
-        storeId: uberStoreId || undefined,
-      });
+      if (mode === "real") {
+        if (!isCredentialFormComplete(picked, creds)) {
+          throw new Error("Please fill in every required credential field.");
+        }
+        return connectPlatform(picked, user.id, { apiKey: "", credentials: creds });
+      }
+      return connectPlatform(picked, user.id, { apiKey });
     },
     onSuccess: (row) => {
       qc.invalidateQueries({ queryKey: ["integrations"] });
@@ -110,9 +111,8 @@ function Integrations() {
       setAddOpen(false);
       setPicked(null);
       setApiKey("");
-      setUberClientId("");
-      setUberClientSecret("");
-      setUberStoreId("");
+      setCreds({});
+      setMode("demo");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -215,6 +215,8 @@ function Integrations() {
                       onClick={() => {
                         setPicked(p.id);
                         setApiKey(demoKeyFor(p.id));
+                        setMode("demo");
+                        setCreds({});
                       }}
                     className="w-full flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent transition-colors text-left disabled:opacity-50"
                   >
@@ -229,45 +231,42 @@ function Integrations() {
             </div>
             ) : (
               <div className="space-y-4 pt-2">
-                <div className="space-y-2">
-                  <Label>API key</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      placeholder={demoKeyFor(picked)}
-                    />
-                    <Button type="button" variant="outline" onClick={fillDemo}>
-                      Use demo key
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Demo key: <code className="font-mono">{demoKeyFor(picked)}</code>
-                  </p>
+                <div className="flex gap-2 rounded-md border p-1 bg-muted/30 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => setMode("demo")}
+                    className={`flex-1 px-3 py-1.5 rounded ${mode === "demo" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}
+                  >
+                    Continue with demo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode("real")}
+                    className={`flex-1 px-3 py-1.5 rounded ${mode === "real" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}
+                  >
+                    I have real credentials
+                  </button>
                 </div>
-                {picked === "UberEats" && (
-                  <div className="space-y-3 rounded-md border bg-muted/30 p-3">
-                    <p className="text-xs text-muted-foreground">
-                      Optional: paste real UberEats sandbox credentials. Leave blank to use the
-                      demo flow.
-                    </p>
-                    <div className="space-y-1">
-                      <Label className="text-xs">client_id</Label>
-                      <Input value={uberClientId} onChange={(e) => setUberClientId(e.target.value)} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">client_secret</Label>
+
+                {mode === "demo" ? (
+                  <div className="space-y-2">
+                    <Label>API key</Label>
+                    <div className="flex gap-2">
                       <Input
-                        type="password"
-                        value={uberClientSecret}
-                        onChange={(e) => setUberClientSecret(e.target.value)}
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder={demoKeyFor(picked)}
                       />
+                      <Button type="button" variant="outline" onClick={fillDemo}>
+                        Use demo key
+                      </Button>
                     </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">store_id</Label>
-                      <Input value={uberStoreId} onChange={(e) => setUberStoreId(e.target.value)} />
-                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Demo key: <code className="font-mono">{demoKeyFor(picked)}</code>
+                    </p>
                   </div>
+                ) : (
+                  <CredentialForm platform={picked} values={creds} onChange={setCreds} />
                 )}
                 <div className="flex gap-2 justify-end">
                   <Button variant="ghost" onClick={() => setPicked(null)}>
