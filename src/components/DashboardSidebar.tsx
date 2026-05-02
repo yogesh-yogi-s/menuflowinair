@@ -1,9 +1,13 @@
-import { Utensils, LayoutDashboard, Link2, Sparkles, LogOut, Shield, User, Inbox } from "lucide-react";
+import { Utensils, LayoutDashboard, Link2, Sparkles, LogOut, Shield, User, Inbox, BarChart3 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/use-auth";
+import { listPlatformOrders } from "@/services/integrations";
+import { useRealtimeTable } from "@/hooks/use-realtime";
 import {
   Sidebar,
   SidebarContent,
@@ -17,7 +21,8 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Menu Management", url: "/dashboard" as const, icon: LayoutDashboard },
+  { title: "Overview", url: "/dashboard" as const, icon: BarChart3 },
+  { title: "Menu", url: "/dashboard/menu" as const, icon: LayoutDashboard },
   { title: "Integrations", url: "/dashboard/integrations" as const, icon: Link2 },
   { title: "Orders", url: "/dashboard/orders" as const, icon: Inbox },
   { title: "AI Tools", url: "/dashboard/ai-tools" as const, icon: Sparkles },
@@ -40,6 +45,18 @@ export function DashboardSidebar() {
   const navigate = useNavigate();
   const { signOut, isAdmin, user, profile } = useAuth();
   const isActive = (path: string) => location.pathname === path;
+
+  const { data: orders = [] } = useQuery({
+    queryKey: ["platform_orders"],
+    queryFn: listPlatformOrders,
+    enabled: !!user,
+  });
+  useRealtimeTable({
+    table: "platform_orders",
+    invalidate: [["platform_orders"]],
+    enabled: !!user,
+  });
+  const newOrders = orders.filter((o) => o.status === "received").length;
 
   const handleSignOut = async () => {
     await signOut();
@@ -74,7 +91,16 @@ export function DashboardSidebar() {
                       activeOptions={{ exact: true }}
                     >
                       <item.icon className="mr-2 h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
+                      {!collapsed && (
+                        <span className="flex-1 flex items-center justify-between">
+                          <span>{item.title}</span>
+                          {item.url === "/dashboard/orders" && newOrders > 0 && (
+                            <Badge variant="destructive" className="h-5 min-w-5 px-1.5">
+                              {newOrders}
+                            </Badge>
+                          )}
+                        </span>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
