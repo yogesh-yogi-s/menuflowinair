@@ -17,6 +17,9 @@ export interface Database {
           email: string | null;
           phone: string | null;
           avatar_url: string | null;
+          slug: string | null;
+          tagline: string | null;
+          preferences: Json;
           created_at: string;
           updated_at: string;
         };
@@ -27,6 +30,9 @@ export interface Database {
           email?: string | null;
           phone?: string | null;
           avatar_url?: string | null;
+          slug?: string | null;
+          tagline?: string | null;
+          preferences?: Json;
         };
         Update: {
           full_name?: string | null;
@@ -34,6 +40,9 @@ export interface Database {
           email?: string | null;
           phone?: string | null;
           avatar_url?: string | null;
+          slug?: string | null;
+          tagline?: string | null;
+          preferences?: Json;
         };
         Relationships: [];
       };
@@ -158,6 +167,10 @@ export interface Database {
           items: Json;
           placed_at: string;
           created_at: string;
+          status_reason: string | null;
+          accepted_at: string | null;
+          ready_at: string | null;
+          completed_at: string | null;
         };
         Insert: {
           owner_id?: string;
@@ -169,12 +182,20 @@ export interface Database {
           total?: number;
           items?: Json;
           placed_at?: string;
+          status_reason?: string | null;
+          accepted_at?: string | null;
+          ready_at?: string | null;
+          completed_at?: string | null;
         };
         Update: {
           status?: string;
           customer_name?: string | null;
           total?: number;
           items?: Json;
+          status_reason?: string | null;
+          accepted_at?: string | null;
+          ready_at?: string | null;
+          completed_at?: string | null;
         };
         Relationships: [];
       };
@@ -186,6 +207,7 @@ export interface Database {
           integration_id: string;
           available: boolean;
           updated_at: string;
+          created_at: string;
         };
         Insert: {
           owner_id?: string;
@@ -198,8 +220,49 @@ export interface Database {
         };
         Relationships: [];
       };
+      order_status_events: {
+        Row: {
+          id: string;
+          owner_id: string;
+          order_id: string;
+          from_status: string | null;
+          to_status: string;
+          reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          owner_id?: string;
+          order_id: string;
+          from_status?: string | null;
+          to_status: string;
+          reason?: string | null;
+        };
+        Update: { reason?: string | null };
+        Relationships: [];
+      };
     };
-    Views: Record<string, never>;
+    Views: {
+      v_orders_daily: {
+        Row: {
+          owner_id: string;
+          platform: string;
+          day: string;
+          orders: number;
+          revenue: number;
+        };
+        Relationships: [];
+      };
+      v_top_items: {
+        Row: {
+          owner_id: string;
+          name: string;
+          qty: number;
+          revenue: number;
+          last_ordered_at: string;
+        };
+        Relationships: [];
+      };
+    };
     Functions: {
       has_role: { Args: { _user_id: string; _role: AppRole }; Returns: boolean };
       list_tables: { Args: Record<string, never>; Returns: { table_name: string }[] };
@@ -207,6 +270,7 @@ export interface Database {
         Args: { _table: string };
         Returns: { column_name: string; data_type: string; is_nullable: string }[];
       };
+      get_public_menu: { Args: { _slug: string }; Returns: Json };
     };
     Enums: { app_role: AppRole };
   };

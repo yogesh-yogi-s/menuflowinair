@@ -57,4 +57,15 @@ export interface PlatformAdapter {
   syncMenu(ctx: AdapterContext, items: PlatformMenuItem[]): Promise<SyncResult>;
   fetchOrders(ctx: AdapterContext, knownItems: PlatformMenuItem[]): Promise<PlatformOrder[]>;
   setAvailability(ctx: AdapterContext, itemId: string, available: boolean): Promise<void>;
+  /**
+   * Push our internal order status to the source platform.
+   * Best-effort: callers should not block on this and should surface failures
+   * as toasts. Implementations map our pipeline to each platform's state.
+   */
+  updateOrderStatus(
+    ctx: AdapterContext,
+    externalOrderId: string,
+    status: string,
+    reason?: string,
+  ): Promise<void>;
 }

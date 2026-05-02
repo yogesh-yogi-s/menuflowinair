@@ -1,101 +1,229 @@
-## Goals
 
-1. Let users enter **real platform credentials** (per-platform, with the field names each platform actually uses on its developer portal). If left blank, fall back to the existing mock flow.
-2. Fix the admin tables error: `menu_item_availability.created_at does not exist`.
-3. Fix the empty **Categories** table in admin and explain what it's for.
+# Plan: Operations + Analytics + Public Menu
 
----
-
-## 1. Real-credential forms per platform
-
-Today only UberEats has a real-credential block. The connect dialog only collects an `apiKey` for the others. I'll define a per-platform credential schema using the **exact field labels each platform uses on its real developer portal**, then render a dynamic form in `dashboard.integrations.tsx`.
-
-**Field schema (`src/server/platforms/credentials.ts`, new):**
-
-| Platform | Real fields (portal labels) | Where users get them |
-|---|---|---|
-| UberEats | `Client ID`, `Client Secret`, `Store UUID` | developer.uber.com → Eats app |
-| DoorDash | `Developer ID`, `Key ID`, `Signing Secret`, `Store ID` | developer.doordash.com → Drive/Marketplace app |
-| Grubhub | `Client ID`, `Client Secret`, `Restaurant ID` | Grubhub for Restaurants → API access |
-| Zomato | `API Key`, `Restaurant ID` | partners.zomato.com (legacy partner API) |
-| Swiggy | `Partner API Key`, `Restaurant ID` | partner.swiggy.com → Integrations |
-
-Each field has: `name`, `label`, `type` (`text` | `password`), `placeholder`, `required`, `helpUrl`.
-
-**UI changes (`dashboard.integrations.tsx`):**
-- Replace the single `apiKey` input + the UberEats-only block with a generic `<CredentialForm platform={picked} values={...} />` driven by the schema above.
-- Top of the form: a toggle **"I have real credentials"** vs **"Continue with demo"**.
-  - Demo mode: fills `apiKey` with `demoKeyFor(platform)` and disables the real fields. Clicking Connect uses the existing mock adapter — unchanged behavior.
-  - Real mode: shows the platform-specific fields with the labels from the table above, plus a small "Where do I find these?" link (`helpUrl`).
-- Submit posts the collected values to `connectPlatform(...)`.
-
-**Type + adapter changes:**
-- Extend `ConnectInput` in `src/server/platforms/types.ts` with an open-ended `credentials?: Record<string, string>` map (keeps existing `apiKey`/`clientId`/`clientSecret`/`storeId` for back-compat).
-- Update `createMockAdapter`: if `credentials` is non-empty (real mode), accept any non-empty values and skip the demo-key check, returning a fake but realistic-looking token. If `credentials` is empty, keep the current `demo-<platform>-key` validation.
-- `createUberEatsAdapter`: read from `credentials.client_id / client_secret / store_uuid` first, fall back to existing fields.
-- Add stub adapters for DoorDash and Grubhub later if needed; for now the mock with real-mode pass-through is enough.
-
-**Storage:** Real credentials are stored encrypted-at-rest by Supabase as part of `integrations.config` (jsonb). We'll store `credentials` under `config.credentials` and never log them. Webhook URL/secret display in the card stays as is.
+Three connected upgrades that turn the app from a viewer into a real operations tool, give the home page actual value, and make the menu shareable.
 
 ---
 
-## 2. Fix `menu_item_availability.created_at does not exist`
+## Part 1 — Realtime + Order Status Pipeline
 
-The `get_columns` RPC orders by something that assumes `created_at`, and the admin UI also passes `orderBy: { column: "created_at" }` to `getAll`, which fails on tables that don't have it. The migration `integrations_full_setup.sql` defines `menu_item_availability` with only `updated_at`, no `created_at`.
+### Goal
+Orders flow through a clear kitchen workflow, update live across tabs/devices, and (where supported) push status back to the source platform. New orders announce themselves so staff don't miss them.
 
-**Two fixes (apply both):**
+### Status pipeline
+Replace today's flat enum with a defined lifecycle:
 
-**a) Add the missing column** — new migration `add_created_at_to_menu_item_availability.sql`:
-```sql
-alter table public.menu_item_availability
-  add column if not exists created_at timestamptz not null default now();
+```text
+received → accepted → preparing → ready → out_for_delivery → completed
+                   ↘ rejected
+                                              ↘ cancelled
 ```
 
-**b) Make admin table viewer resilient** — in `src/routes/_authenticated/admin.tables.tsx`, only pass `orderBy: created_at` when the active table's columns include `created_at`; otherwise order by `id`. This prevents the same crash for any future table without `created_at`.
+- **One-click transitions**: each row shows only the next valid action(s) as a primary button (e.g. "Accept", "Mark ready"), plus a secondary "Reject/Cancel" with a reason dialog.
+- **Kanban view toggle**: same data as a 5-column board (Received / Preparing / Ready / Out / Done) — drag-or-click to advance. Table view stays as default.
+- **Prep-time SLA badge**: color the row by age (green <10min, amber 10–20, red >20). Threshold per platform stored in `integrations.config.sla_minutes`, default 20.
+- **Reason capture**: rejecting/cancelling opens a small dialog with preset reasons ("out of stock", "kitchen closed", "duplicate") + free text, stored in `platform_orders.status_reason`.
+- **Audit trail**: every transition writes a row to a new `order_status_events` table (who, when, from, to, reason) — surfaced as an expandable row detail.
+
+### Push status back to platforms
+- New adapter method `updateOrderStatus(ctx, externalOrderId, status, reason?)` on `PlatformAdapter`.
+- Mock adapter logs and returns ok. UberEats stub maps our statuses to Uber's POS state machine (`accept` / `deny` / `cancel`); falls back to mock when in demo mode.
+- Service `updateOrderStatus(orderId, status, reason)` does: insert audit event → update `platform_orders` row → call adapter (best-effort, surfaced as toast if it fails, local state still moves).
+
+### Realtime everywhere
+Use Supabase Realtime (Postgres changes) — owner_id-scoped via RLS:
+
+| Table | Subscribed in | Effect |
+|---|---|---|
+| `platform_orders` | Orders page, dashboard sidebar badge | Insert → toast + sound + cache invalidate; Update → silent invalidate |
+| `order_status_events` | Order detail row | Live audit log |
+| `integrations` | Integrations page | `last_sync_status` updates without refresh |
+| `menu_item_availability` | Menu page | Per-platform chips reflect changes from other sessions |
+
+A reusable `useRealtimeTable(table, queryKey)` hook in `src/hooks/use-realtime.tsx` wraps subscribe + invalidate cleanup.
+
+### New-order alerts
+- Browser notification (with permission prompt on first visit to Orders page).
+- Short audio cue (single mp3 in `public/sounds/new-order.mp3`).
+- Sidebar shows a count badge of orders in `received` status.
+- A user setting on Profile page: "Order alerts" (sound on/off, browser notifications on/off), persisted in `profiles.preferences` jsonb.
+
+### Database changes (`order_pipeline_setup.sql`)
+```sql
+-- New columns on platform_orders
+alter table public.platform_orders
+  add column if not exists status_reason text,
+  add column if not exists accepted_at timestamptz,
+  add column if not exists ready_at timestamptz,
+  add column if not exists completed_at timestamptz;
+
+-- Audit trail
+create table if not exists public.order_status_events (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  order_id uuid not null references public.platform_orders(id) on delete cascade,
+  from_status text,
+  to_status text not null,
+  reason text,
+  created_at timestamptz not null default now()
+);
+alter table public.order_status_events enable row level security;
+-- owner select/insert policies (mirrors platform_orders)
+
+-- Profile preferences
+alter table public.profiles
+  add column if not exists preferences jsonb not null default '{}'::jsonb;
+
+-- Enable realtime
+alter publication supabase_realtime add table public.platform_orders;
+alter publication supabase_realtime add table public.order_status_events;
+alter publication supabase_realtime add table public.integrations;
+alter publication supabase_realtime add table public.menu_item_availability;
+```
 
 ---
 
-## 3. Categories section is empty — explanation + fix
+## Part 2 — Analytics Dashboard
 
-**Purpose of `categories`:** groups menu items (e.g. "Starters", "Mains", "Desserts", "Drinks"). Each `menu_items` row has an optional `category_id` referencing `categories.id`. This is what powers section headers on a public menu, filtering in the dashboard menu page, and per-section sync to delivery platforms.
+### Goal
+Replace the placeholder home page (currently the Menu management page lives at `/dashboard/`) with a real overview, and move menu management to its own route.
 
-**Why it appears empty in admin:** the table has zero rows because no UI ever creates categories — the menu page lets you create items but not categories. So when you click "categories" in the admin tables sidebar, it correctly shows 0 rows.
+### Routing change
+- `src/routes/_authenticated/dashboard.index.tsx` becomes the **analytics dashboard**.
+- Move existing menu-management content to `src/routes/_authenticated/dashboard.menu.tsx` and update the sidebar link.
 
-**Fix in this round:**
-- Add a small **Categories manager** to `dashboard.menu.tsx`: list existing categories, add new (name + sort_order), rename, delete (with confirm if items are still attached).
-- In the menu item create/edit dialog, replace the free-text/empty category selector with a `<Select>` populated from the categories list, plus an inline "New category…" option.
-- Service helpers go in `src/services/menu.ts` (`createCategory`, `updateCategory`, `deleteCategory`).
+### Dashboard widgets
+Top KPI strip (last 7 days, with delta vs previous 7):
+- Revenue
+- Order count
+- Average order value
+- Rejection rate
 
-This way Categories stops being a dead table and becomes meaningful: items grouped → cleaner menu UI → cleaner platform syncs.
+Charts (recharts, already in shadcn):
+- **Revenue by platform** — stacked bar, daily for 30d. Filter chips for platform.
+- **Orders over time** — line, hourly for today / daily for 30d toggle.
+- **Top 10 items** — horizontal bar by order count.
+- **Sync health** — small table: each integration with its `last_sync_status`, last sync time, error count in 24h. Rows clickable → integrations page.
+
+Time-range selector (Today / 7d / 30d / 90d) drives all widgets via a single shared `range` state.
+
+### Data layer
+All aggregations from `platform_orders` — no new tables. Two SQL views to keep client queries simple and fast:
+
+```sql
+create or replace view public.v_orders_daily as
+select owner_id, platform, date_trunc('day', placed_at) as day,
+       count(*) as orders, sum(total) as revenue
+from public.platform_orders
+where status not in ('rejected','cancelled')
+group by 1,2,3;
+
+create or replace view public.v_top_items as
+select owner_id, item->>'name' as name,
+       sum((item->>'qty')::int) as qty,
+       sum((item->>'qty')::numeric * (item->>'price')::numeric) as revenue
+from public.platform_orders, jsonb_array_elements(items) as item
+where status not in ('rejected','cancelled')
+group by 1,2;
+```
+
+Views inherit RLS from `platform_orders` via `security_invoker = true`.
+
+Service helpers in new `src/services/analytics.ts`:
+- `getKpis(range)`, `getRevenueByPlatform(range)`, `getOrdersTimeseries(range, bucket)`, `getTopItems(range, limit)`, `getSyncHealth()`.
+
+Empty states: when there's no order data yet, each widget shows a friendly "Connect a platform & fetch demo orders to see this" with a button to Integrations.
 
 ---
 
-## Files to create / edit
+## Part 3 — Public Menu Page
+
+### Goal
+A read-only, shareable, SEO-friendly public menu at a stable URL per restaurant. Drives the value of the Categories system.
+
+### URL & slug
+- Add `profiles.slug text unique` (auto-generated from `restaurant_name` on first save, editable on Profile page with availability check).
+- Public route: `src/routes/m.$slug.tsx` → `/m/:slug`.
+- Profile page shows the public URL with a copy button + "Open" link + "Download QR" (uses `qrcode` package, generates client-side PNG).
+
+### Page layout (mobile-first since the user's preview is 400px)
+- Header: restaurant name, optional avatar/logo, short tagline (`profiles.tagline` — new column).
+- Sticky category nav (chips) that scrollspies to sections.
+- One section per category, items with name, description, price, and "Unavailable" overlay when the master `available` flag is false. Items without a category go under "Other".
+- No prices for categories the restaurant chose to hide (future — out of scope this round).
+- Footer: "Powered by [App]".
+
+### Data access
+This page is unauthenticated, so it can't use the user's RLS context. Two options — going with **B** because it's simpler and safer:
+
+**B. Server function with admin client, slug-scoped**
+- New `src/server/menu.functions.ts` exporting `getPublicMenu(slug)` via `createServerFn`.
+- Uses `supabaseAdmin` server-side to: look up `profiles` by slug → fetch that owner's `categories` and `menu_items` (only `available != null` rows; we always show items, just dim unavailable ones).
+- Returns a flat `{ restaurant: {...}, categories: [{...items}] }` shape.
+- Cached in TanStack Query with `staleTime: 60_000`.
+
+### SSR & SEO
+Per the route-architecture rules, the public route gets its own `head()`:
+- `title`: `${restaurant_name} — Menu`
+- `description`: tagline or "View our menu and order online"
+- `og:title`, `og:description`, `og:image` (restaurant avatar if set)
+- Loader uses `ensureQueryData` so HTML is fully rendered server-side.
+
+### Database changes (`public_menu_setup.sql`)
+```sql
+alter table public.profiles
+  add column if not exists slug text unique,
+  add column if not exists tagline text;
+
+create index if not exists profiles_slug_idx on public.profiles(slug);
+
+-- Backfill slugs for existing profiles
+update public.profiles
+set slug = lower(regexp_replace(coalesce(restaurant_name, 'restaurant-' || substr(id::text,1,8)), '[^a-zA-Z0-9]+', '-', 'g'))
+where slug is null;
+```
+
+---
+
+## File map
 
 **New**
-- `src/server/platforms/credentials.ts` — per-platform field schemas
-- `src/components/integrations/CredentialForm.tsx` — generic dynamic form
-- `add_created_at_to_menu_item_availability.sql` — migration
-- `src/components/menu/CategoryManager.tsx` — list/add/edit/delete categories
+- `src/hooks/use-realtime.tsx` — generic Supabase Realtime → React Query bridge
+- `src/components/orders/OrderRow.tsx`, `OrderKanban.tsx`, `RejectDialog.tsx`, `OrderAlerts.tsx`
+- `src/components/dashboard/KpiCard.tsx`, `RevenueChart.tsx`, `OrdersTimeseries.tsx`, `TopItemsChart.tsx`, `SyncHealthCard.tsx`, `RangePicker.tsx`
+- `src/services/analytics.ts`, `src/services/orders.ts` (status transitions + audit)
+- `src/server/menu.functions.ts` — public menu server fn
+- `src/routes/m.$slug.tsx` — public menu page
+- `src/routes/_authenticated/dashboard.menu.tsx` — moved menu management
+- `order_pipeline_setup.sql`, `public_menu_setup.sql`
+- `public/sounds/new-order.mp3` (small free asset)
 
 **Edited**
-- `src/server/platforms/types.ts` — add `credentials` map to `ConnectInput`
-- `src/server/platforms/mock.ts` — accept real credentials and skip demo-key check when present
-- `src/server/platforms/ubereats.ts` — read from `credentials` map
-- `src/routes/_authenticated/dashboard.integrations.tsx` — demo/real toggle + dynamic form
-- `src/routes/_authenticated/admin.tables.tsx` — guard `orderBy` against missing `created_at`
-- `src/routes/_authenticated/dashboard.menu.tsx` — mount CategoryManager + use category Select
-- `src/services/menu.ts` — category CRUD helpers
+- `src/integrations/supabase/database.types.ts` — new columns + `order_status_events` + `v_orders_daily` / `v_top_items`
+- `src/server/platforms/types.ts` + `mock.ts` + `ubereats.ts` — `updateOrderStatus` adapter method
+- `src/services/integrations.ts` — call adapter on status change
+- `src/routes/_authenticated/dashboard.orders.tsx` — pipeline UI, kanban toggle, realtime, alerts, reject dialog
+- `src/routes/_authenticated/dashboard.index.tsx` — replaced with analytics dashboard
+- `src/routes/_authenticated/dashboard.profile.tsx` — slug editor, public URL + QR, alert preferences, tagline
+- `src/components/DashboardSidebar.tsx` — `/dashboard` (Overview) + `/dashboard/menu` (Menu) + new-order count badge
+- `src/services/menu.ts` + `src/services/profile.ts` — slug helpers
+- `package.json` — add `qrcode` (and `@types/qrcode`)
 
 ---
 
-## Action required from you after I implement
+## What you'll need to do after I implement
+1. Run the two new SQL files in Supabase SQL Editor (in order):
+   - `order_pipeline_setup.sql`
+   - `public_menu_setup.sql`
+2. On the Profile page, confirm/edit your auto-generated slug.
+3. Open the Orders page and allow notifications when prompted.
+4. Open Integrations → Fetch orders to populate the analytics dashboard with demo data.
 
-Run the new migration in your Supabase SQL editor:
+---
 
-```sql
-alter table public.menu_item_availability
-  add column if not exists created_at timestamptz not null default now();
-```
-
-Then the admin tables view for `menu_item_availability` will load, and the Categories tab will start filling up as you add categories from the menu page.
+## Out of scope (good follow-ups for a later round)
+- Cron-based auto-sync every N minutes
+- Real Uber/DoorDash status push (full OAuth + sandbox testing)
+- Public menu ordering / cart / checkout
+- Per-section visibility toggle on public menu
+- Email/SMS digest of yesterday's performance

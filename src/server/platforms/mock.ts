@@ -108,5 +108,15 @@ export function createMockAdapter(platform: PlatformId): PlatformAdapter {
       await delay(250);
       // mock — always succeeds
     },
+
+    async updateOrderStatus(
+      _ctx: AdapterContext,
+      _externalOrderId: string,
+      _status: string,
+      _reason?: string,
+    ): Promise<void> {
+      await delay(150);
+      // mock — always succeeds
+    },
   };
 }
