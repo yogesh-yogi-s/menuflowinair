@@ -14,7 +14,6 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
 import { Route as ApiAiGenerateMenuRouteImport } from './routes/api/ai/generate-menu'
 import { Route as AuthenticatedDashboardProfileRouteImport } from './routes/_authenticated/dashboard.profile'
 import { Route as AuthenticatedDashboardOrdersRouteImport } from './routes/_authenticated/dashboard.orders'
@@ -48,12 +47,6 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-const AuthenticatedDashboardIndexRoute =
-  AuthenticatedDashboardIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AuthenticatedDashboardRoute,
-  } as any)
 const ApiAiGenerateMenuRoute = ApiAiGenerateMenuRouteImport.update({
   id: '/api/ai/generate-menu',
   path: '/api/ai/generate-menu',
@@ -114,13 +107,13 @@ export interface FileRoutesByFullPath {
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
-  '/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/api/public/webhook/$platform': typeof ApiPublicWebhookPlatformRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
   '/admin/tables': typeof AuthenticatedAdminTablesRoute
   '/dashboard/ai-tools': typeof AuthenticatedDashboardAiToolsRoute
   '/dashboard/integrations': typeof AuthenticatedDashboardIntegrationsRoute
@@ -128,7 +121,6 @@ export interface FileRoutesByTo {
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
-  '/dashboard': typeof AuthenticatedDashboardIndexRoute
   '/api/public/webhook/$platform': typeof ApiPublicWebhookPlatformRoute
 }
 export interface FileRoutesById {
@@ -145,7 +137,6 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/_authenticated/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
-  '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/api/public/webhook/$platform': typeof ApiPublicWebhookPlatformRoute
 }
 export interface FileRouteTypes {
@@ -162,13 +153,13 @@ export interface FileRouteTypes {
     | '/dashboard/orders'
     | '/dashboard/profile'
     | '/api/ai/generate-menu'
-    | '/dashboard/'
     | '/api/public/webhook/$platform'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/login'
     | '/signup'
+    | '/dashboard'
     | '/admin/tables'
     | '/dashboard/ai-tools'
     | '/dashboard/integrations'
@@ -176,7 +167,6 @@ export interface FileRouteTypes {
     | '/dashboard/orders'
     | '/dashboard/profile'
     | '/api/ai/generate-menu'
-    | '/dashboard'
     | '/api/public/webhook/$platform'
   id:
     | '__root__'
@@ -192,7 +182,6 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard/orders'
     | '/_authenticated/dashboard/profile'
     | '/api/ai/generate-menu'
-    | '/_authenticated/dashboard/'
     | '/api/public/webhook/$platform'
   fileRoutesById: FileRoutesById
 }
@@ -241,13 +230,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRoute
-    }
-    '/_authenticated/dashboard/': {
-      id: '/_authenticated/dashboard/'
-      path: '/'
-      fullPath: '/dashboard/'
-      preLoaderRoute: typeof AuthenticatedDashboardIndexRouteImport
-      parentRoute: typeof AuthenticatedDashboardRoute
     }
     '/api/ai/generate-menu': {
       id: '/api/ai/generate-menu'
@@ -314,7 +296,6 @@ interface AuthenticatedDashboardRouteChildren {
   AuthenticatedDashboardMenuRoute: typeof AuthenticatedDashboardMenuRoute
   AuthenticatedDashboardOrdersRoute: typeof AuthenticatedDashboardOrdersRoute
   AuthenticatedDashboardProfileRoute: typeof AuthenticatedDashboardProfileRoute
-  AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
 }
 
 const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
@@ -325,7 +306,6 @@ const AuthenticatedDashboardRouteChildren: AuthenticatedDashboardRouteChildren =
     AuthenticatedDashboardMenuRoute: AuthenticatedDashboardMenuRoute,
     AuthenticatedDashboardOrdersRoute: AuthenticatedDashboardOrdersRoute,
     AuthenticatedDashboardProfileRoute: AuthenticatedDashboardProfileRoute,
-    AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
   }
 
 const AuthenticatedDashboardRouteWithChildren =

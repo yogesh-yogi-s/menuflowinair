@@ -1,398 +1,317 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  LineChart,
+  Line,
+  CartesianGrid,
+} from "recharts";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2, RefreshCw, Loader2 } from "lucide-react";
-import { toast } from "sonner";
+import { ArrowDown, ArrowUp, Loader2, TrendingUp, ShoppingBag, DollarSign, AlertTriangle } from "lucide-react";
 import {
-  listMenuItems,
-  createMenuItem,
-  updateMenuItem,
-  deleteMenuItem,
-  listCategories,
-  type MenuItemRow,
-} from "@/services/menu";
-import {
-  logSync,
-  listIntegrations,
-  listAvailabilityOverrides,
-  setItemPlatformAvailability,
-} from "@/services/integrations";
-import { useAuth } from "@/hooks/use-auth";
-import { CategoryManager } from "@/components/menu/CategoryManager";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+  getKpis,
+  getRevenueByPlatform,
+  getOrdersTimeseries,
+  getTopItems,
+  getSyncHealth,
+  RANGE_LABEL,
+  type RangeKey,
+} from "@/services/analytics";
+import { useRealtimeTable } from "@/hooks/use-realtime";
 
 export const Route = createFileRoute("/_authenticated/dashboard/")({
-  component: MenuManagement,
+  head: () => ({ meta: [{ title: "Overview — MenuFlow" }] }),
+  component: DashboardOverview,
 });
 
-interface FormState {
-  id?: string;
-  name: string;
-  description: string;
-  price: number;
-  category_id: string;
-  available: boolean;
-}
+const PLATFORM_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
-const emptyForm: FormState = { name: "", description: "", price: 0, category_id: "", available: true };
+function DashboardOverview() {
+  const [range, setRange] = useState<RangeKey>("7d");
 
-function MenuManagement() {
-  const qc = useQueryClient();
-  const { user } = useAuth();
-  const [search, setSearch] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(emptyForm);
-  const [editing, setEditing] = useState<MenuItemRow | null>(null);
-  const [syncing, setSyncing] = useState(false);
-
-  const { data: items = [], isLoading, error } = useQuery({
-    queryKey: ["menu_items"],
-    queryFn: listMenuItems,
+  // Live: invalidate everything when orders change
+  useRealtimeTable({
+    table: "platform_orders",
+    invalidate: [
+      ["analytics", "kpis"],
+      ["analytics", "revenue"],
+      ["analytics", "timeseries"],
+      ["analytics", "top"],
+    ],
   });
 
-  const { data: categories = [] } = useQuery({
-    queryKey: ["categories"],
-    queryFn: listCategories,
+  const { data: kpis, isLoading: kpiLoading } = useQuery({
+    queryKey: ["analytics", "kpis", range],
+    queryFn: () => getKpis(range),
   });
-
-  const { data: integrations = [] } = useQuery({
-    queryKey: ["integrations"],
-    queryFn: listIntegrations,
+  const { data: revenue, isLoading: revLoading } = useQuery({
+    queryKey: ["analytics", "revenue", range],
+    queryFn: () => getRevenueByPlatform(range),
   });
-
-  const { data: overrides = [] } = useQuery({
-    queryKey: ["availability_overrides"],
-    queryFn: listAvailabilityOverrides,
+  const { data: timeseries, isLoading: tsLoading } = useQuery({
+    queryKey: ["analytics", "timeseries", range],
+    queryFn: () => getOrdersTimeseries(range),
   });
-
-  const isOverrideOn = (menuItemId: string, integrationId: string): boolean => {
-    const row = overrides.find(
-      (o) => o.menu_item_id === menuItemId && o.integration_id === integrationId,
-    );
-    return row ? row.available : true;
-  };
-
-  const toggleOverride = useMutation({
-    mutationFn: ({
-      menuItemId,
-      integrationId,
-      available,
-    }: {
-      menuItemId: string;
-      integrationId: string;
-      available: boolean;
-    }) => {
-      const integ = integrations.find((i) => i.id === integrationId);
-      if (!integ) throw new Error("Integration not found");
-      if (!user?.id) throw new Error("Not signed in");
-      return setItemPlatformAvailability(user.id, menuItemId, integ, available);
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["availability_overrides"] }),
-    onError: (e: Error) => toast.error(e.message),
+  const { data: topItems, isLoading: topLoading } = useQuery({
+    queryKey: ["analytics", "top"],
+    queryFn: () => getTopItems(10),
   });
-
-  const createMut = useMutation({
-    mutationFn: () =>
-      createMenuItem({
-        name: form.name,
-        description: form.description || null,
-        price: form.price,
-        available: form.available,
-        owner_id: user?.id,
-        category_id: form.category_id || null,
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["menu_items"] });
-      toast.success("Item added");
-      setIsOpen(false);
-    },
-    onError: (e: Error) => toast.error(e.message),
+  const { data: health, isLoading: healthLoading } = useQuery({
+    queryKey: ["analytics", "health"],
+    queryFn: getSyncHealth,
   });
-
-  const updateMut = useMutation({
-    mutationFn: () =>
-      updateMenuItem(form.id!, {
-        name: form.name,
-        description: form.description || null,
-        price: form.price,
-        available: form.available,
-        category_id: form.category_id || null,
-      }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["menu_items"] });
-      toast.success("Item updated");
-      setIsOpen(false);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const deleteMut = useMutation({
-    mutationFn: (id: string) => deleteMenuItem(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["menu_items"] });
-      toast.success("Item deleted");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const toggleAvail = useMutation({
-    mutationFn: ({ id, available }: { id: string; available: boolean }) =>
-      updateMenuItem(id, { available }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["menu_items"] }),
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const openNew = () => {
-    setEditing(null);
-    setForm(emptyForm);
-    setIsOpen(true);
-  };
-
-  const openEdit = (item: MenuItemRow) => {
-    setEditing(item);
-    setForm({
-      id: item.id,
-      name: item.name,
-      description: item.description ?? "",
-      price: Number(item.price),
-      category_id: item.category_id ?? "",
-      available: item.available,
-    });
-    setIsOpen(true);
-  };
-
-  const submit = () => {
-    if (!form.name || form.price <= 0) {
-      toast.error("Name and a positive price are required");
-      return;
-    }
-    if (editing) updateMut.mutate();
-    else createMut.mutate();
-  };
-
-  const syncAll = async () => {
-    setSyncing(true);
-    try {
-      await logSync(null, "success", "Manual menu sync triggered");
-      toast.success("Menu sync logged");
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const filtered = items.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-display font-bold">Menu Management</h1>
-          <p className="text-muted-foreground">Add, edit, and sync your menu items</p>
+          <h1 className="text-2xl font-display font-bold">Overview</h1>
+          <p className="text-sm text-muted-foreground">{RANGE_LABEL[range]} — updates live as orders come in.</p>
         </div>
-        <div className="flex gap-3">
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-              <Button variant="hero" onClick={openNew}>
-                <Plus className="mr-2 h-4 w-4" /> Add Item
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editing ? "Edit Item" : "New Item"}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label>Name</Label>
-                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Textarea
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Price ($)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={form.price}
-                    onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <Select
-                    value={form.category_id || "__none"}
-                    onValueChange={(v) =>
-                      setForm({ ...form, category_id: v === "__none" ? "" : v })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Uncategorized" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none">Uncategorized</SelectItem>
-                      {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {categories.length === 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      No categories yet — add some below the table to group your items.
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Available</Label>
-                  <Switch
-                    checked={form.available}
-                    onCheckedChange={(v) => setForm({ ...form, available: v })}
-                  />
-                </div>
-                <Button
-                  variant="hero"
-                  className="w-full"
-                  onClick={submit}
-                  disabled={createMut.isPending || updateMut.isPending}
-                >
-                  {(createMut.isPending || updateMut.isPending) && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Save
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          <Button onClick={syncAll} disabled={syncing} variant="coral">
-            <RefreshCw className={`mr-2 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Syncing..." : "Sync All"}
-          </Button>
-        </div>
+        <Tabs value={range} onValueChange={(v) => setRange(v as RangeKey)}>
+          <TabsList>
+            <TabsTrigger value="today">Today</TabsTrigger>
+            <TabsTrigger value="7d">7d</TabsTrigger>
+            <TabsTrigger value="30d">30d</TabsTrigger>
+            <TabsTrigger value="90d">90d</TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
-      <Input
-        placeholder="Search menu items…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="max-w-sm"
-      />
+      {/* KPI strip */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard
+          icon={<DollarSign className="h-4 w-4" />}
+          label="Revenue"
+          value={kpis ? `$${kpis.revenue.toFixed(2)}` : "—"}
+          delta={kpis?.revenueDelta}
+          loading={kpiLoading}
+        />
+        <KpiCard
+          icon={<ShoppingBag className="h-4 w-4" />}
+          label="Orders"
+          value={kpis ? String(kpis.orders) : "—"}
+          delta={kpis?.ordersDelta}
+          loading={kpiLoading}
+        />
+        <KpiCard
+          icon={<TrendingUp className="h-4 w-4" />}
+          label="Avg order value"
+          value={kpis ? `$${kpis.aov.toFixed(2)}` : "—"}
+          loading={kpiLoading}
+        />
+        <KpiCard
+          icon={<AlertTriangle className="h-4 w-4" />}
+          label="Rejection rate"
+          value={kpis ? `${kpis.rejectionRate}%` : "—"}
+          loading={kpiLoading}
+          tone={kpis && kpis.rejectionRate > 10 ? "warning" : "neutral"}
+        />
+      </div>
 
-      <div className="rounded-xl border bg-card overflow-hidden">
-        {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground">Loading…</div>
-        ) : error ? (
-          <div className="p-8 text-center text-destructive">
-            Failed to load: {(error as Error).message}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            No menu items yet. Click "Add Item" to create one.
-          </div>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Available</TableHead>
-                <TableHead>Per-platform</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{item.name}</div>
-                      <div className="text-sm text-muted-foreground line-clamp-1">
-                        {item.description}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-medium">${Number(item.price).toFixed(2)}</TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={item.available}
-                      onCheckedChange={(v) => toggleAvail.mutate({ id: item.id, available: v })}
+      {/* Charts */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Revenue by platform</CardTitle>
+            <CardDescription>Daily revenue, stacked by platform</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {revLoading ? (
+              <ChartSkeleton />
+            ) : !revenue || revenue.data.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={revenue.data}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="day" fontSize={11} />
+                  <YAxis fontSize={11} />
+                  <Tooltip />
+                  <Legend />
+                  {revenue.platforms.map((p, i) => (
+                    <Bar
+                      key={p}
+                      dataKey={p}
+                      stackId="a"
+                      fill={PLATFORM_COLORS[i % PLATFORM_COLORS.length]}
                     />
-                  </TableCell>
-                  <TableCell>
-                    {integrations.length === 0 ? (
-                      <span className="text-xs text-muted-foreground">No integrations</span>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {integrations.map((integ) => {
-                          const on = isOverrideOn(item.id, integ.id);
-                          return (
-                            <button
-                              key={integ.id}
-                              type="button"
-                              onClick={() =>
-                                toggleOverride.mutate({
-                                  menuItemId: item.id,
-                                  integrationId: integ.id,
-                                  available: !on,
-                                })
-                              }
-                              className={`text-[11px] px-2 py-1 rounded-md border transition-colors ${
-                                on
-                                  ? "bg-success/10 text-success border-success/30"
-                                  : "bg-muted text-muted-foreground border-border line-through"
-                              }`}
-                              title={`${on ? "Available" : "Hidden"} on ${integ.platform}`}
-                            >
-                              {integ.platform}
-                            </button>
-                          );
-                        })}
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Orders over time</CardTitle>
+            <CardDescription>{range === "today" ? "Hourly today" : "Daily"}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {tsLoading ? (
+              <ChartSkeleton />
+            ) : !timeseries || timeseries.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <LineChart data={timeseries}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis
+                    dataKey="bucket"
+                    fontSize={11}
+                    tickFormatter={(v) =>
+                      range === "today"
+                        ? new Date(v).getHours() + ":00"
+                        : new Date(v).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+                    }
+                  />
+                  <YAxis fontSize={11} allowDecimals={false} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="orders" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Top items</CardTitle>
+            <CardDescription>By order volume (all time)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {topLoading ? (
+              <ChartSkeleton />
+            ) : !topItems || topItems.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={topItems} layout="vertical" margin={{ left: 80 }}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis type="number" fontSize={11} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" fontSize={11} width={100} />
+                  <Tooltip />
+                  <Bar dataKey="qty" fill="#10b981" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Sync health</CardTitle>
+            <CardDescription>Connected integrations and recent errors</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {healthLoading ? (
+              <ChartSkeleton />
+            ) : !health || health.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No integrations connected yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {health.map((h) => (
+                  <Link
+                    key={h.id}
+                    to="/dashboard/integrations"
+                    className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                  >
+                    <div>
+                      <div className="font-medium text-sm">{h.platform}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {h.last_synced_at ? new Date(h.last_synced_at).toLocaleString() : "Never synced"}
                       </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(item)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          if (confirm(`Delete "${item.name}"?`)) deleteMut.mutate(item.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
                     </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+                    <div className="flex items-center gap-2">
+                      {h.errors_24h > 0 && (
+                        <Badge variant="destructive">{h.errors_24h} err / 24h</Badge>
+                      )}
+                      <Badge variant={h.status === "connected" ? "outline" : "destructive"}>
+                        {h.status}
+                      </Badge>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
+    </div>
+  );
+}
 
-      {!isLoading && filtered.length > 0 && (
-        <Badge variant="secondary">{filtered.length} item(s)</Badge>
-      )}
+function KpiCard({
+  icon,
+  label,
+  value,
+  delta,
+  loading,
+  tone = "neutral",
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  delta?: number;
+  loading?: boolean;
+  tone?: "neutral" | "warning";
+}) {
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between text-muted-foreground text-xs uppercase tracking-wide">
+          <span>{label}</span>
+          {icon}
+        </div>
+        {loading ? (
+          <Loader2 className="h-5 w-5 animate-spin mt-3 text-muted-foreground" />
+        ) : (
+          <div className="mt-2 flex items-end gap-2">
+            <span className={`text-2xl font-bold ${tone === "warning" ? "text-amber-600 dark:text-amber-400" : ""}`}>
+              {value}
+            </span>
+            {delta != null && (
+              <span
+                className={`text-xs flex items-center ${
+                  delta >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
+                }`}
+              >
+                {delta >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                {Math.abs(delta)}%
+              </span>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
-      <CategoryManager />
+function ChartSkeleton() {
+  return (
+    <div className="h-[260px] flex items-center justify-center">
+      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="h-[260px] flex flex-col items-center justify-center text-center text-muted-foreground text-sm gap-2">
+      <p>No data yet for this range.</p>
+      <Link to="/dashboard/integrations" className="text-primary hover:underline">
+        Connect a platform & fetch demo orders →
+      </Link>
     </div>
   );
 }
