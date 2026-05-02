@@ -29,7 +29,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { CategoryManager } from "@/components/menu/CategoryManager";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export const Route = createFileRoute("/_authenticated/dashboard/")({
+export const Route = createFileRoute("/_authenticated/dashboard/menu")({
+  head: () => ({ meta: [{ title: "Menu — MenuFlow" }] }),
   component: MenuManagement,
 });
 
