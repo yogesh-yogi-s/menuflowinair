@@ -250,6 +250,7 @@ export interface Database {
           orders: number;
           revenue: number;
         };
+        Relationships: [];
       };
       v_top_items: {
         Row: {
@@ -259,6 +260,7 @@ export interface Database {
           revenue: number;
           last_ordered_at: string;
         };
+        Relationships: [];
       };
     };
     Functions: {
