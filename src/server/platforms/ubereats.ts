@@ -55,5 +55,16 @@ export function createUberEatsAdapter(): PlatformAdapter {
       // Real call: POST .../menu_items/{item_id}/availability
       return mock.setAvailability(ctx, itemId, available);
     },
+    async updateOrderStatus(
+      ctx: AdapterContext,
+      externalOrderId: string,
+      status: string,
+      reason?: string,
+    ): Promise<void> {
+      // Real Uber maps roughly: accepted->accept_pos_order, rejected->deny_pos_order,
+      // cancelled->cancel_pos_order. Other statuses are local-only.
+      // POST https://api.uber.com/v1/eats/orders/{order_id}/{action}
+      return mock.updateOrderStatus(ctx, externalOrderId, status, reason);
+    },
   };
 }
