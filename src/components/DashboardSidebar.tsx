@@ -1,4 +1,4 @@
-import { Utensils, LayoutDashboard, Link2, Sparkles, LogOut, Shield, User, Inbox, BarChart3 } from "lucide-react";
+import { Utensils, LayoutDashboard, Link2, Sparkles, LogOut, Shield, User, Inbox, BarChart3, Share2 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -57,6 +57,7 @@ export function DashboardSidebar() {
     enabled: !!user,
   });
   const newOrders = orders.filter((o) => o.status === "received").length;
+  const publicSlug = profile?.slug ?? null;
 
   const handleSignOut = async () => {
     await signOut();
@@ -115,6 +116,31 @@ export function DashboardSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  {publicSlug ? (
+                    <a
+                      href={`/m/${publicSlug}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:bg-muted/50"
+                      title="Open public menu"
+                    >
+                      <Share2 className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Share menu</span>}
+                    </a>
+                  ) : (
+                    <Link
+                      to="/dashboard/profile"
+                      className="hover:bg-muted/50"
+                      title="Set up your public menu"
+                    >
+                      <Share2 className="mr-2 h-4 w-4" />
+                      {!collapsed && <span>Share menu</span>}
+                    </Link>
+                  )}
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
