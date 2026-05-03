@@ -13,6 +13,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MSlugRouteImport } from './routes/m.$slug'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
 import { Route as ApiAiGenerateMenuRouteImport } from './routes/api/ai/generate-menu'
@@ -41,6 +42,11 @@ const AuthenticatedRoute = AuthenticatedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MSlugRoute = MSlugRouteImport.update({
+  id: '/m/$slug',
+  path: '/m/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/m/$slug': typeof MSlugRoute
   '/admin/tables': typeof AuthenticatedAdminTablesRoute
   '/dashboard/ai-tools': typeof AuthenticatedDashboardAiToolsRoute
   '/dashboard/integrations': typeof AuthenticatedDashboardIntegrationsRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/m/$slug': typeof MSlugRoute
   '/admin/tables': typeof AuthenticatedAdminTablesRoute
   '/dashboard/ai-tools': typeof AuthenticatedDashboardAiToolsRoute
   '/dashboard/integrations': typeof AuthenticatedDashboardIntegrationsRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRouteWithChildren
+  '/m/$slug': typeof MSlugRoute
   '/_authenticated/admin/tables': typeof AuthenticatedAdminTablesRoute
   '/_authenticated/dashboard/ai-tools': typeof AuthenticatedDashboardAiToolsRoute
   '/_authenticated/dashboard/integrations': typeof AuthenticatedDashboardIntegrationsRoute
@@ -155,6 +164,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/dashboard'
+    | '/m/$slug'
     | '/admin/tables'
     | '/dashboard/ai-tools'
     | '/dashboard/integrations'
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/m/$slug'
     | '/admin/tables'
     | '/dashboard/ai-tools'
     | '/dashboard/integrations'
@@ -185,6 +196,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/signup'
     | '/_authenticated/dashboard'
+    | '/m/$slug'
     | '/_authenticated/admin/tables'
     | '/_authenticated/dashboard/ai-tools'
     | '/_authenticated/dashboard/integrations'
@@ -201,6 +213,7 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  MSlugRoute: typeof MSlugRoute
   ApiAiGenerateMenuRoute: typeof ApiAiGenerateMenuRoute
   ApiPublicWebhookPlatformRoute: typeof ApiPublicWebhookPlatformRoute
 }
@@ -233,6 +246,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/m/$slug': {
+      id: '/m/$slug'
+      path: '/m/$slug'
+      fullPath: '/m/$slug'
+      preLoaderRoute: typeof MSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/dashboard': {
@@ -352,9 +372,19 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  MSlugRoute: MSlugRoute,
   ApiAiGenerateMenuRoute: ApiAiGenerateMenuRoute,
   ApiPublicWebhookPlatformRoute: ApiPublicWebhookPlatformRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
