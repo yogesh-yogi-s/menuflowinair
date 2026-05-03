@@ -40,7 +40,9 @@ export function useRealtimeTable<T = Record<string, unknown>>(opts: Options<T>) 
 
   useEffect(() => {
     if (!enabled) return;
-    const channelName = `rt:${table}:${filter ?? "all"}`;
+    // Unique per hook instance — Supabase reuses channels by name, and
+    // calling `.on()` on an already-subscribed channel throws.
+    const channelName = `rt:${table}:${filter ?? "all"}:${Math.random().toString(36).slice(2)}`;
     const channel = supabase
       .channel(channelName)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
