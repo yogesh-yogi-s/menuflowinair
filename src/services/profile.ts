@@ -26,6 +26,8 @@ export interface ProfileRow {
   email: string | null;
   phone: string | null;
   avatar_url: string | null;
+  slug: string | null;
+  tagline: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +47,8 @@ export interface ProfileUpdateInput {
   restaurant_name?: string | null;
   phone?: string | null;
   avatar_url?: string | null;
+  slug?: string | null;
+  tagline?: string | null;
 }
 
 export async function updateMyProfile(userId: string, input: ProfileUpdateInput): Promise<ProfileRow> {
@@ -56,4 +60,34 @@ export async function updateMyProfile(userId: string, input: ProfileUpdateInput)
     .single();
   if (error) throw error;
   return data as ProfileRow;
+}
+
+/** Lowercase, dash-separated, alphanumeric-only slug from arbitrary text. */
+export function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
+/**
+ * Returns true if the slug is free (or already owned by `excludeUserId`).
+ * Uses the public RPC's underlying table; RLS allows anyone to read profiles.id+slug.
+ */
+export async function isSlugAvailable(slug: string, excludeUserId?: string): Promise<boolean> {
+  const trimmed = slug.trim();
+  if (!trimmed) return false;
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("slug", trimmed)
+    .maybeSingle();
+  if (error) {
+    console.error("isSlugAvailable error", error);
+    return false;
+  }
+  if (!data) return true;
+  return excludeUserId ? data.id === excludeUserId : false;
 }
