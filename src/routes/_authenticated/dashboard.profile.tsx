@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { getMyProfile, updateMyProfile, type ProfileRow } from "@/services/profile";
 import { uploadAvatar } from "@/services/avatar";
 import { supabase } from "@/integrations/supabase/client";
+import { PublicMenuCard } from "@/components/profile/PublicMenuCard";
 
 export const Route = createFileRoute("/_authenticated/dashboard/profile")({
   head: () => ({ meta: [{ title: "Profile — MenuFlow" }] }),
@@ -245,6 +246,14 @@ function ProfilePage() {
           </form>
         </CardContent>
       </Card>
+
+      {user && profile && (
+        <PublicMenuCard
+          userId={user.id}
+          profile={profile}
+          onProfileChanged={(p) => setProfile(p)}
+        />
+      )}
 
       <Card>
         <CardHeader>
