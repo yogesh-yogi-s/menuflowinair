@@ -1,51 +1,101 @@
-# Add menu items to categories from the Category section
+## Three AI features powered by Google Gemini
 
-Today the **Categories** card on the Menu page only lets you create / rename / delete categories. You can only attach an item to a category by opening the "Add Item" / "Edit Item" dialog at the top of the page. We'll make categories first-class containers so you can add items directly from there.
+We'll add three time-saving AI tools to your dashboard, all powered by your own Google Gemini API key (stored as a project secret, called only from the server — never exposed to the browser).
 
-## What the user will see
+---
 
-**1. Inline "Add items" while creating a category**
+### 1. Describe-from-photo (dish image → menu item)
 
-The "New category name…" row gets a small "Create & add items" affordance. Flow:
-- Type a category name → press **Create**.
-- A toast confirms creation, and the new category row auto-expands with a small **"+ Add item"** button right below it (same UI as #2).
-- Optional follow-up: an "Add existing items to this category" multi-select that shows uncategorized items so you can bulk-assign them in one click.
+**Where:** New "Describe from photo" button on the Menu page, plus an option inside the existing "Add menu item" dialog.
 
-**2. Each category row becomes expandable**
+**Flow:**
+- Owner uploads a photo (drag/drop or file picker) **or** pastes a public image URL.
+- Uploaded files go to a new public Supabase Storage bucket `dish-photos` (10MB limit, owner-scoped RLS).
+- Server function calls **Gemini 1.5 Flash (vision)** with the image and returns: `{ name, description, suggested_price, category_guess }`.
+- Result appears in a preview card — owner can edit then click "Add to menu" (creates a `menu_items` row, linking the photo URL to a new `image_url` column).
 
-Each category in the list gets a chevron. Expanding it shows:
-- The list of menu items currently in that category (name + price), with a small **×** to remove an item from the category (sets `category_id = null`, doesn't delete the item).
-- A **"+ Add item"** button that opens a compact popover with two tabs:
-  - **New item** — name + price (+ optional description), creates a `menu_items` row already linked to this category.
-  - **Existing item** — searchable list of items not yet in this category; clicking one moves it in.
-- An item count badge next to the category name (e.g. `Mains · 6`).
+---
 
-**3. Empty-state nudge**
+### 2. One-click menu translation
 
-When a category has zero items, the expanded panel shows "No items in this category yet" with the same "+ Add item" button, so the user always has a one-click path.
+**Storage:** New `menu_item_translations` table:
+```
+id, menu_item_id (fk), locale (text), name, description,
+ai_generated (bool), created_at, updated_at
+unique(menu_item_id, locale)
+```
+Plus `category_translations` (same shape) so category names translate too.
 
-## Technical changes
+**UI:** On the Menu page header, a "Translate menu" button opens a dialog:
+- Locale dropdown preloaded with **French (fr), Spanish (es), Hindi (hi), Arabic (ar)** + free-text for any ISO code.
+- "Translate all" button → server function batches all items + categories into a single Gemini call (JSON mode, structured output) and upserts rows.
+- Per-item override: edit the translated name/description inline; sets `ai_generated=false`.
+- Public menu (`/m/$slug`) gets a `?lang=fr` query param + a small language switcher; falls back to original when a translation is missing.
 
-Files touched:
+---
 
-- **`src/components/menu/CategoryManager.tsx`** — main work:
-  - Pull `menu_items` via `useQuery(["menu_items"], listMenuItems)` and group by `category_id`.
-  - Add expand/collapse state per category row.
-  - Add `<AddItemToCategoryPopover />` (new sub-component in the same file or `src/components/menu/AddItemToCategoryPopover.tsx`) with the New / Existing tabs, using shadcn `Popover` + `Tabs` + `Command` for search.
-  - Mutations:
-    - Create new item in category → `createMenuItem({ ..., category_id, owner_id: user.id, available: true })`.
-    - Move existing item → `updateMenuItem(id, { category_id })`.
-    - Remove from category → `updateMenuItem(id, { category_id: null })`.
-  - On the create-category mutation `onSuccess`, auto-expand the newly created row and (optionally) open the popover.
-  - Invalidate `["menu_items"]` and `["categories"]` after every mutation.
+### 3. Daily summary email (8 AM local time)
 
-- **`src/services/menu.ts`** — no schema changes needed; reuse `createMenuItem` / `updateMenuItem`. Optionally add a small helper `listItemsByCategory(categoryId)` for clarity, but client-side grouping is fine given current data sizes.
+**What it sends:** AI-written one-paragraph summary of yesterday — total revenue, order count, top item, any platform sync failures, biggest miss.
 
-- **`src/routes/_authenticated/dashboard.menu.tsx`** — no behavioral changes; the existing "Add Item" dialog at the top stays as-is for users who prefer it. The CategoryManager card simply gains the new affordances. Both views share the same `["menu_items"]` query key so they stay in sync automatically.
+**Pieces:**
+1. Add `timezone` column to `profiles` (default `UTC`, owner editable in Profile page).
+2. New table `daily_summaries (id, owner_id, summary_date, stats jsonb, ai_text, email_sent_at)` for idempotency + history view.
+3. **Email infrastructure:** Set up Lovable Emails domain (you'll be prompted to add NS records at your registrar — one-time, ~5 min).
+4. Transactional email template `daily-summary` (React Email).
+5. Public cron endpoint `/api/public/cron/daily-summary` runs **every hour** via pg_cron — for each owner whose local time is 8 AM and not yet sent today, it:
+   - Aggregates yesterday's `orders` + `platform_sync_logs`
+   - Calls Gemini for the natural-language summary
+   - Enqueues the email via `sendTransactionalEmail`
+   - Writes a row to `daily_summaries`
+6. **Dashboard widget:** A "Yesterday's summary" card on the overview shows the latest summary so it's also visible in-app.
 
-No DB migration, no RLS changes, no new dependencies — all UI + existing service calls.
+---
 
-## Out of scope
+### Shared infrastructure
 
-- Drag-and-drop reordering of items between categories (can be a follow-up).
-- Per-platform availability toggles inside the category panel (already handled in the main Menu table).
+- **Secret:** I'll prompt you to paste your `GEMINI_API_KEY` (stored as a runtime secret, server-only).
+- **One Gemini client module** (`src/server/ai/gemini.server.ts`) with helpers: `describeImage`, `translateBatch`, `summarizeDay`. All other code calls these — easy to swap models later.
+- **Server functions** (not Edge Functions) for all AI calls, following the TanStack pattern already in your repo.
+- **Rate limit + error handling:** 429/402 errors surface as toast messages; failed translations/summaries are retried up to 3× then logged.
+
+---
+
+### Files to be created / edited
+
+**New SQL migrations**
+- `menu_item_translations` + `category_translations` tables with RLS
+- `daily_summaries` table with RLS
+- `dish-photos` storage bucket + policies
+- `image_url` column on `menu_items`
+- `timezone` column on `profiles`
+- pg_cron job for daily summary
+
+**New files**
+- `src/server/ai/gemini.server.ts` — Gemini client + helpers
+- `src/server/ai/menu.functions.ts` — `describeFromPhoto`, `translateMenu` server fns
+- `src/services/translations.ts` — CRUD for translations
+- `src/components/menu/DescribeFromPhotoDialog.tsx`
+- `src/components/menu/TranslateMenuDialog.tsx`
+- `src/components/menu/LanguageSwitcher.tsx`
+- `src/components/dashboard/YesterdaySummaryCard.tsx`
+- `src/lib/email-templates/daily-summary.tsx`
+- `src/routes/api/public/cron.daily-summary.ts`
+- `src/services/storage.ts` (dish-photos upload helper)
+
+**Edited files**
+- `src/components/menu/CategoryManager.tsx` — show translation count badge
+- `src/routes/_authenticated/dashboard.menu.tsx` — add new buttons
+- `src/routes/_authenticated/dashboard.index.tsx` — mount summary card
+- `src/routes/_authenticated/dashboard.profile.tsx` — timezone picker
+- `src/components/menu/PublicMenuView.tsx` + `src/routes/m.$slug.tsx` — language switching
+- `src/lib/email-templates/registry.ts` — register daily-summary template
+
+---
+
+### Order of execution after approval
+
+1. Ask you for the `GEMINI_API_KEY` and trigger Lovable Emails domain setup dialog.
+2. Once both are ready, run all migrations.
+3. Build feature 1 (photo) → feature 2 (translate) → feature 3 (daily email).
+4. Verify with a test send and a sample translation.
