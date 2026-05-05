@@ -130,4 +130,4 @@ export const Route = createFileRoute("/api/public/webhook/$platform")({
       },
     },
   },
-});
+} as any);
