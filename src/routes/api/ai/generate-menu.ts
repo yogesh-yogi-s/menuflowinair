@@ -137,4 +137,4 @@ export const Route = createFileRoute("/api/ai/generate-menu")({
       },
     },
   },
-});
+} as any);
