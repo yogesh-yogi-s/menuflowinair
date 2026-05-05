@@ -38,7 +38,7 @@ export const Route = createFileRoute("/api/public/webhook/$platform")({
   server: {
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: cors }),
-      POST: async ({ request, params }) => {
+      POST: async ({ request, params }: { request: Request; params: { platform: string } }) => {
         try {
           const url = new URL(request.url);
           const integrationId = url.searchParams.get("integration");
@@ -130,4 +130,4 @@ export const Route = createFileRoute("/api/public/webhook/$platform")({
       },
     },
   },
-});
+} as any);

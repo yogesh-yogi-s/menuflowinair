@@ -11,7 +11,7 @@ interface GeneratedItem {
 export const Route = createFileRoute("/api/ai/generate-menu")({
   server: {
     handlers: {
-      POST: async ({ request }) => {
+      POST: async ({ request }: { request: Request }) => {
         try {
           // --- AuthN: require a valid Supabase session ---
           const authHeader = request.headers.get("authorization") ?? "";
@@ -137,4 +137,4 @@ export const Route = createFileRoute("/api/ai/generate-menu")({
       },
     },
   },
-});
+} as any);
