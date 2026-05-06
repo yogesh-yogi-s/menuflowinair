@@ -16,7 +16,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as MSlugRouteImport } from './routes/m.$slug'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
+import { Route as ApiAiTranslateMenuRouteImport } from './routes/api/ai/translate-menu'
 import { Route as ApiAiGenerateMenuRouteImport } from './routes/api/ai/generate-menu'
+import { Route as ApiAiDescribePhotoRouteImport } from './routes/api/ai/describe-photo'
 import { Route as AuthenticatedDashboardProfileRouteImport } from './routes/_authenticated/dashboard.profile'
 import { Route as AuthenticatedDashboardOrdersRouteImport } from './routes/_authenticated/dashboard.orders'
 import { Route as AuthenticatedDashboardMenuRouteImport } from './routes/_authenticated/dashboard.menu'
@@ -60,9 +62,19 @@ const AuthenticatedDashboardIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
+const ApiAiTranslateMenuRoute = ApiAiTranslateMenuRouteImport.update({
+  id: '/api/ai/translate-menu',
+  path: '/api/ai/translate-menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAiGenerateMenuRoute = ApiAiGenerateMenuRouteImport.update({
   id: '/api/ai/generate-menu',
   path: '/api/ai/generate-menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiDescribePhotoRoute = ApiAiDescribePhotoRouteImport.update({
+  id: '/api/ai/describe-photo',
+  path: '/api/ai/describe-photo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedDashboardProfileRoute =
@@ -120,7 +132,9 @@ export interface FileRoutesByFullPath {
   '/dashboard/menu': typeof AuthenticatedDashboardMenuRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
+  '/api/ai/describe-photo': typeof ApiAiDescribePhotoRoute
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
+  '/api/ai/translate-menu': typeof ApiAiTranslateMenuRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/api/public/webhook/$platform': typeof ApiPublicWebhookPlatformRoute
 }
@@ -135,7 +149,9 @@ export interface FileRoutesByTo {
   '/dashboard/menu': typeof AuthenticatedDashboardMenuRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
+  '/api/ai/describe-photo': typeof ApiAiDescribePhotoRoute
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
+  '/api/ai/translate-menu': typeof ApiAiTranslateMenuRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
   '/api/public/webhook/$platform': typeof ApiPublicWebhookPlatformRoute
 }
@@ -153,7 +169,9 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/menu': typeof AuthenticatedDashboardMenuRoute
   '/_authenticated/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/_authenticated/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
+  '/api/ai/describe-photo': typeof ApiAiDescribePhotoRoute
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
+  '/api/ai/translate-menu': typeof ApiAiTranslateMenuRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/api/public/webhook/$platform': typeof ApiPublicWebhookPlatformRoute
 }
@@ -171,7 +189,9 @@ export interface FileRouteTypes {
     | '/dashboard/menu'
     | '/dashboard/orders'
     | '/dashboard/profile'
+    | '/api/ai/describe-photo'
     | '/api/ai/generate-menu'
+    | '/api/ai/translate-menu'
     | '/dashboard/'
     | '/api/public/webhook/$platform'
   fileRoutesByTo: FileRoutesByTo
@@ -186,7 +206,9 @@ export interface FileRouteTypes {
     | '/dashboard/menu'
     | '/dashboard/orders'
     | '/dashboard/profile'
+    | '/api/ai/describe-photo'
     | '/api/ai/generate-menu'
+    | '/api/ai/translate-menu'
     | '/dashboard'
     | '/api/public/webhook/$platform'
   id:
@@ -203,7 +225,9 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard/menu'
     | '/_authenticated/dashboard/orders'
     | '/_authenticated/dashboard/profile'
+    | '/api/ai/describe-photo'
     | '/api/ai/generate-menu'
+    | '/api/ai/translate-menu'
     | '/_authenticated/dashboard/'
     | '/api/public/webhook/$platform'
   fileRoutesById: FileRoutesById
@@ -214,7 +238,9 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   MSlugRoute: typeof MSlugRoute
+  ApiAiDescribePhotoRoute: typeof ApiAiDescribePhotoRoute
   ApiAiGenerateMenuRoute: typeof ApiAiGenerateMenuRoute
+  ApiAiTranslateMenuRoute: typeof ApiAiTranslateMenuRoute
   ApiPublicWebhookPlatformRoute: typeof ApiPublicWebhookPlatformRoute
 }
 
@@ -269,11 +295,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardIndexRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
+    '/api/ai/translate-menu': {
+      id: '/api/ai/translate-menu'
+      path: '/api/ai/translate-menu'
+      fullPath: '/api/ai/translate-menu'
+      preLoaderRoute: typeof ApiAiTranslateMenuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/ai/generate-menu': {
       id: '/api/ai/generate-menu'
       path: '/api/ai/generate-menu'
       fullPath: '/api/ai/generate-menu'
       preLoaderRoute: typeof ApiAiGenerateMenuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/describe-photo': {
+      id: '/api/ai/describe-photo'
+      path: '/api/ai/describe-photo'
+      fullPath: '/api/ai/describe-photo'
+      preLoaderRoute: typeof ApiAiDescribePhotoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/dashboard/profile': {
@@ -373,7 +413,9 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   MSlugRoute: MSlugRoute,
+  ApiAiDescribePhotoRoute: ApiAiDescribePhotoRoute,
   ApiAiGenerateMenuRoute: ApiAiGenerateMenuRoute,
+  ApiAiTranslateMenuRoute: ApiAiTranslateMenuRoute,
   ApiPublicWebhookPlatformRoute: ApiPublicWebhookPlatformRoute,
 }
 export const routeTree = rootRouteImport
