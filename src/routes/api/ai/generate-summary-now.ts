@@ -33,8 +33,7 @@ export const Route = createFileRoute("/api/ai/generate-summary-now")({
             .maybeSingle();
           const tz = prof?.timezone || "UTC";
 
-          // Re-generate by deleting any existing row first.
-          const { localDateISO } = await import("@/server/ai/summary.server");
+          const { localDateISO } = await import("../../../server/ai/summary.server");
           // previous day in local tz
           const today = localDateISO(tz);
           const d = new Date(`${today}T00:00:00Z`);
