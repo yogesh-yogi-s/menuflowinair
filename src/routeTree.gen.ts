@@ -26,6 +26,7 @@ import { Route as AuthenticatedDashboardIntegrationsRouteImport } from './routes
 import { Route as AuthenticatedDashboardAiToolsRouteImport } from './routes/_authenticated/dashboard.ai-tools'
 import { Route as AuthenticatedAdminTablesRouteImport } from './routes/_authenticated/admin.tables'
 import { Route as ApiPublicWebhookPlatformRouteImport } from './routes/api/public/webhook.$platform'
+import { Route as ApiPublicCronDailySummaryRouteImport } from './routes/api/public/cron/daily-summary'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -119,6 +120,12 @@ const ApiPublicWebhookPlatformRoute =
     path: '/api/public/webhook/$platform',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCronDailySummaryRoute =
+  ApiPublicCronDailySummaryRouteImport.update({
+    id: '/api/public/cron/daily-summary',
+    path: '/api/public/cron/daily-summary',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
   '/api/ai/translate-menu': typeof ApiAiTranslateMenuRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/api/public/cron/daily-summary': typeof ApiPublicCronDailySummaryRoute
   '/api/public/webhook/$platform': typeof ApiPublicWebhookPlatformRoute
 }
 export interface FileRoutesByTo {
@@ -153,6 +161,7 @@ export interface FileRoutesByTo {
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
   '/api/ai/translate-menu': typeof ApiAiTranslateMenuRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
+  '/api/public/cron/daily-summary': typeof ApiPublicCronDailySummaryRoute
   '/api/public/webhook/$platform': typeof ApiPublicWebhookPlatformRoute
 }
 export interface FileRoutesById {
@@ -173,6 +182,7 @@ export interface FileRoutesById {
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
   '/api/ai/translate-menu': typeof ApiAiTranslateMenuRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/api/public/cron/daily-summary': typeof ApiPublicCronDailySummaryRoute
   '/api/public/webhook/$platform': typeof ApiPublicWebhookPlatformRoute
 }
 export interface FileRouteTypes {
@@ -193,6 +203,7 @@ export interface FileRouteTypes {
     | '/api/ai/generate-menu'
     | '/api/ai/translate-menu'
     | '/dashboard/'
+    | '/api/public/cron/daily-summary'
     | '/api/public/webhook/$platform'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -210,6 +221,7 @@ export interface FileRouteTypes {
     | '/api/ai/generate-menu'
     | '/api/ai/translate-menu'
     | '/dashboard'
+    | '/api/public/cron/daily-summary'
     | '/api/public/webhook/$platform'
   id:
     | '__root__'
@@ -229,6 +241,7 @@ export interface FileRouteTypes {
     | '/api/ai/generate-menu'
     | '/api/ai/translate-menu'
     | '/_authenticated/dashboard/'
+    | '/api/public/cron/daily-summary'
     | '/api/public/webhook/$platform'
   fileRoutesById: FileRoutesById
 }
@@ -241,6 +254,7 @@ export interface RootRouteChildren {
   ApiAiDescribePhotoRoute: typeof ApiAiDescribePhotoRoute
   ApiAiGenerateMenuRoute: typeof ApiAiGenerateMenuRoute
   ApiAiTranslateMenuRoute: typeof ApiAiTranslateMenuRoute
+  ApiPublicCronDailySummaryRoute: typeof ApiPublicCronDailySummaryRoute
   ApiPublicWebhookPlatformRoute: typeof ApiPublicWebhookPlatformRoute
 }
 
@@ -365,6 +379,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebhookPlatformRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/daily-summary': {
+      id: '/api/public/cron/daily-summary'
+      path: '/api/public/cron/daily-summary'
+      fullPath: '/api/public/cron/daily-summary'
+      preLoaderRoute: typeof ApiPublicCronDailySummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -416,6 +437,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAiDescribePhotoRoute: ApiAiDescribePhotoRoute,
   ApiAiGenerateMenuRoute: ApiAiGenerateMenuRoute,
   ApiAiTranslateMenuRoute: ApiAiTranslateMenuRoute,
+  ApiPublicCronDailySummaryRoute: ApiPublicCronDailySummaryRoute,
   ApiPublicWebhookPlatformRoute: ApiPublicWebhookPlatformRoute,
 }
 export const routeTree = rootRouteImport
