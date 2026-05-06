@@ -2,6 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { LanguageSwitcher } from "@/components/menu/LanguageSwitcher";
+import { isRtl, SUPPORTED_LOCALES } from "@/lib/locales";
 
 export interface PublicMenuRestaurant {
   id: string;
@@ -51,22 +55,108 @@ function formatPrice(value: number): string {
 
 const OTHER_KEY = "__other__";
 
-export function PublicMenuView({ data }: { data: PublicMenuData }) {
+interface ViewProps {
+  data: PublicMenuData;
+  lang?: string;
+  onLangChange?: (lang: string) => void;
+}
+
+export function PublicMenuView({ data, lang = "en", onLangChange }: ViewProps) {
   const { restaurant, categories, items } = data;
 
+  const ownerId = restaurant.id;
+  const itemIds = useMemo(() => items.map((i) => i.id), [items]);
+  const catIds = useMemo(() => categories.map((c) => c.id), [categories]);
+
+  // Discover which locales have any translations for this owner (for switcher).
+  const { data: availableLocales = [] } = useQuery({
+    queryKey: ["public_menu_locales", ownerId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("menu_item_translations")
+        .select("locale")
+        .eq("owner_id", ownerId);
+      if (error) return [];
+      const set = new Set<string>();
+      for (const r of data ?? []) set.add(r.locale);
+      return Array.from(set);
+    },
+    enabled: !!ownerId,
+    staleTime: 5 * 60_000,
+  });
+
+  const useLang = lang !== "en" && SUPPORTED_LOCALES.some((l) => l.code === lang);
+
+  const { data: itemTranslations = [] } = useQuery({
+    queryKey: ["public_item_trans", ownerId, lang],
+    queryFn: async () => {
+      if (!useLang || itemIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("menu_item_translations")
+        .select("menu_item_id,name,description")
+        .eq("locale", lang)
+        .in("menu_item_id", itemIds);
+      if (error) return [];
+      return data ?? [];
+    },
+    enabled: useLang && itemIds.length > 0,
+    staleTime: 60_000,
+  });
+
+  const { data: catTranslations = [] } = useQuery({
+    queryKey: ["public_cat_trans", ownerId, lang],
+    queryFn: async () => {
+      if (!useLang || catIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("category_translations")
+        .select("category_id,name")
+        .eq("locale", lang)
+        .in("category_id", catIds);
+      if (error) return [];
+      return data ?? [];
+    },
+    enabled: useLang && catIds.length > 0,
+    staleTime: 60_000,
+  });
+
+  const itemTransMap = useMemo(() => {
+    const m = new Map<string, { name: string; description: string | null }>();
+    for (const t of itemTranslations)
+      m.set(t.menu_item_id, { name: t.name, description: t.description });
+    return m;
+  }, [itemTranslations]);
+
+  const catTransMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of catTranslations) m.set(t.category_id, t.name);
+    return m;
+  }, [catTranslations]);
+
   const sections = useMemo(() => {
-    const ordered = [...categories].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+    const ordered = [...categories].sort(
+      (a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name),
+    );
     const result = ordered.map((c) => ({
       key: c.id,
-      name: c.name,
-      items: items.filter((i) => i.category_id === c.id),
+      name: catTransMap.get(c.id) ?? c.name,
+      items: items.filter((i) => i.category_id === c.id).map((i) => ({
+        ...i,
+        name: itemTransMap.get(i.id)?.name ?? i.name,
+        description: itemTransMap.get(i.id)?.description ?? i.description,
+      })),
     }));
-    const orphans = items.filter((i) => !i.category_id || !ordered.some((c) => c.id === i.category_id));
+    const orphans = items
+      .filter((i) => !i.category_id || !ordered.some((c) => c.id === i.category_id))
+      .map((i) => ({
+        ...i,
+        name: itemTransMap.get(i.id)?.name ?? i.name,
+        description: itemTransMap.get(i.id)?.description ?? i.description,
+      }));
     if (orphans.length) {
       result.push({ key: OTHER_KEY, name: "Other", items: orphans });
     }
     return result.filter((s) => s.items.length > 0);
-  }, [categories, items]);
+  }, [categories, items, itemTransMap, catTransMap]);
 
   const [activeKey, setActiveKey] = useState<string | null>(sections[0]?.key ?? null);
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -101,21 +191,29 @@ export function PublicMenuView({ data }: { data: PublicMenuData }) {
   };
 
   const title = restaurant.restaurant_name || restaurant.full_name || "Menu";
+  const dir = isRtl(lang) ? "rtl" : "ltr";
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground" dir={dir}>
       <header className="border-b bg-card">
-        <div className="mx-auto max-w-2xl px-4 py-6 flex items-center gap-4">
+        <div className="mx-auto max-w-2xl px-4 py-6 flex items-center gap-4 flex-wrap">
           <Avatar className="h-16 w-16">
             {restaurant.avatar_url && <AvatarImage src={restaurant.avatar_url} alt={title} />}
             <AvatarFallback className="text-lg">{getInitials(title)}</AvatarFallback>
           </Avatar>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-display font-bold truncate">{title}</h1>
             {restaurant.tagline && (
               <p className="text-sm text-muted-foreground line-clamp-2">{restaurant.tagline}</p>
             )}
           </div>
+          {onLangChange && (
+            <LanguageSwitcher
+              current={lang}
+              available={availableLocales}
+              onChange={onLangChange}
+            />
+          )}
         </div>
         {sections.length > 1 && (
           <nav className="sticky top-0 z-10 bg-card/95 backdrop-blur border-t">

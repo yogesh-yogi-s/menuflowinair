@@ -30,7 +30,7 @@ function ProfilePage() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [form, setForm] = useState({ full_name: "", restaurant_name: "", phone: "", avatar_url: "" });
+  const [form, setForm] = useState({ full_name: "", restaurant_name: "", phone: "", avatar_url: "", timezone: "UTC" });
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -52,6 +52,7 @@ function ProfilePage() {
             restaurant_name: p.restaurant_name ?? "",
             phone: p.phone ?? "",
             avatar_url: p.avatar_url ?? "",
+            timezone: p.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC",
           });
         }
       })
@@ -102,6 +103,7 @@ function ProfilePage() {
         restaurant_name: form.restaurant_name.trim() || null,
         phone: form.phone.trim() || null,
         avatar_url: form.avatar_url.trim() || null,
+        timezone: form.timezone || "UTC",
       });
       setProfile(updated);
       await refreshProfile();
@@ -237,6 +239,29 @@ function ProfilePage() {
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone</Label>
                 <Input id="phone" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} maxLength={30} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="timezone">Timezone (IANA)</Label>
+                <Input
+                  id="timezone"
+                  value={form.timezone}
+                  onChange={(e) => setForm({ ...form, timezone: e.target.value })}
+                  placeholder="e.g. Europe/Paris, Asia/Kolkata"
+                  list="tz-suggestions"
+                />
+                <datalist id="tz-suggestions">
+                  <option value="UTC" />
+                  <option value="America/New_York" />
+                  <option value="America/Los_Angeles" />
+                  <option value="Europe/London" />
+                  <option value="Europe/Paris" />
+                  <option value="Europe/Madrid" />
+                  <option value="Asia/Kolkata" />
+                  <option value="Asia/Dubai" />
+                  <option value="Asia/Tokyo" />
+                  <option value="Australia/Sydney" />
+                </datalist>
+                <p className="text-xs text-muted-foreground">Used to send your daily summary at 8:00 AM local time.</p>
               </div>
             </div>
             <Button type="submit" disabled={savingProfile}>

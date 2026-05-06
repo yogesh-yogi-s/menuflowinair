@@ -1,5 +1,7 @@
 import { createFileRoute, notFound, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { PublicMenuView, type PublicMenuData } from "@/components/menu/PublicMenuView";
 
@@ -11,6 +13,7 @@ async function fetchPublicMenu(slug: string): Promise<PublicMenuData | null> {
 }
 
 export const Route = createFileRoute("/m/$slug")({
+  validateSearch: z.object({ lang: z.string().optional() }),
   loader: async ({ params, context }) => {
     const data = await context.queryClient.ensureQueryData({
       queryKey: ["public_menu", params.slug],
@@ -61,6 +64,8 @@ export const Route = createFileRoute("/m/$slug")({
 
 function PublicMenuPage() {
   const { slug } = Route.useParams();
+  const { lang } = Route.useSearch();
+  const navigate = useNavigate();
   const { data: initial } = Route.useLoaderData();
   const { data } = useQuery({
     queryKey: ["public_menu", slug],
@@ -69,5 +74,18 @@ function PublicMenuPage() {
     staleTime: 60_000,
   });
   if (!data) return null;
-  return <PublicMenuView data={data} />;
+  return (
+    <PublicMenuView
+      data={data}
+      lang={lang ?? "en"}
+      onLangChange={(next) =>
+        navigate({
+          to: "/m/$slug",
+          params: { slug },
+          search: next === "en" ? {} : { lang: next },
+          replace: true,
+        })
+      }
+    />
+  );
 }

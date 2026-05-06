@@ -22,6 +22,7 @@ export interface Database {
           preferences: Json;
           created_at: string;
           updated_at: string;
+          timezone: string;
         };
         Insert: {
           id: string;
@@ -33,6 +34,7 @@ export interface Database {
           slug?: string | null;
           tagline?: string | null;
           preferences?: Json;
+          timezone?: string;
         };
         Update: {
           full_name?: string | null;
@@ -43,6 +45,7 @@ export interface Database {
           slug?: string | null;
           tagline?: string | null;
           preferences?: Json;
+          timezone?: string;
         };
         Relationships: [];
       };
@@ -238,6 +241,78 @@ export interface Database {
           reason?: string | null;
         };
         Update: { reason?: string | null };
+        Relationships: [];
+      };
+      menu_item_translations: {
+        Row: {
+          id: string;
+          menu_item_id: string;
+          owner_id: string;
+          locale: string;
+          name: string;
+          description: string | null;
+          ai_generated: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          menu_item_id: string;
+          owner_id?: string;
+          locale: string;
+          name: string;
+          description?: string | null;
+          ai_generated?: boolean;
+        };
+        Update: {
+          name?: string;
+          description?: string | null;
+          ai_generated?: boolean;
+        };
+        Relationships: [];
+      };
+      category_translations: {
+        Row: {
+          id: string;
+          category_id: string;
+          owner_id: string;
+          locale: string;
+          name: string;
+          ai_generated: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          category_id: string;
+          owner_id?: string;
+          locale: string;
+          name: string;
+          ai_generated?: boolean;
+        };
+        Update: { name?: string; ai_generated?: boolean };
+        Relationships: [];
+      };
+      daily_summaries: {
+        Row: {
+          id: string;
+          owner_id: string;
+          summary_date: string;
+          stats: Json;
+          ai_text: string | null;
+          email_sent_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          owner_id: string;
+          summary_date: string;
+          stats?: Json;
+          ai_text?: string | null;
+          email_sent_at?: string | null;
+        };
+        Update: {
+          stats?: Json;
+          ai_text?: string | null;
+          email_sent_at?: string | null;
+        };
         Relationships: [];
       };
     };

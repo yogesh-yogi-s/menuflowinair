@@ -27,6 +27,8 @@ import {
 } from "@/services/integrations";
 import { useAuth } from "@/hooks/use-auth";
 import { CategoryManager } from "@/components/menu/CategoryManager";
+import { DescribeFromPhotoDialog } from "@/components/menu/DescribeFromPhotoDialog";
+import { TranslateMenuDialog } from "@/components/menu/TranslateMenuDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/_authenticated/dashboard/menu")({
@@ -41,9 +43,10 @@ interface FormState {
   price: number;
   category_id: string;
   available: boolean;
+  image_url: string;
 }
 
-const emptyForm: FormState = { name: "", description: "", price: 0, category_id: "", available: true };
+const emptyForm: FormState = { name: "", description: "", price: 0, category_id: "", available: true, image_url: "" };
 
 function MenuManagement() {
   const qc = useQueryClient();
@@ -109,6 +112,7 @@ function MenuManagement() {
         available: form.available,
         owner_id: user?.id,
         category_id: form.category_id || null,
+        image_url: form.image_url || null,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["menu_items"] });
@@ -126,6 +130,7 @@ function MenuManagement() {
         price: form.price,
         available: form.available,
         category_id: form.category_id || null,
+        image_url: form.image_url || null,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["menu_items"] });
@@ -166,6 +171,7 @@ function MenuManagement() {
       price: Number(item.price),
       category_id: item.category_id ?? "",
       available: item.available,
+      image_url: item.image_url ?? "",
     });
     setIsOpen(true);
   };
@@ -201,6 +207,8 @@ function MenuManagement() {
           <p className="text-muted-foreground">Add, edit, and sync your menu items</p>
         </div>
         <div className="flex gap-3">
+          <DescribeFromPhotoDialog />
+          <TranslateMenuDialog />
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
               <Button variant="hero" onClick={openNew}>
@@ -221,6 +229,14 @@ function MenuManagement() {
                   <Textarea
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Image URL</Label>
+                  <Input
+                    placeholder="https://..."
+                    value={form.image_url}
+                    onChange={(e) => setForm({ ...form, image_url: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -320,10 +336,21 @@ function MenuManagement() {
               {filtered.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>
-                    <div>
-                      <div className="font-medium">{item.name}</div>
-                      <div className="text-sm text-muted-foreground line-clamp-1">
-                        {item.description}
+                    <div className="flex items-center gap-3">
+                      {item.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.image_url}
+                          alt={item.name}
+                          loading="lazy"
+                          className="h-10 w-10 rounded-md object-cover flex-shrink-0 border"
+                        />
+                      ) : null}
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{item.name}</div>
+                        <div className="text-sm text-muted-foreground line-clamp-1">
+                          {item.description}
+                        </div>
                       </div>
                     </div>
                   </TableCell>

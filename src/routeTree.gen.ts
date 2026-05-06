@@ -16,7 +16,10 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as MSlugRouteImport } from './routes/m.$slug'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard.index'
+import { Route as ApiAiTranslateMenuRouteImport } from './routes/api/ai/translate-menu'
+import { Route as ApiAiGenerateSummaryNowRouteImport } from './routes/api/ai/generate-summary-now'
 import { Route as ApiAiGenerateMenuRouteImport } from './routes/api/ai/generate-menu'
+import { Route as ApiAiDescribePhotoRouteImport } from './routes/api/ai/describe-photo'
 import { Route as AuthenticatedDashboardProfileRouteImport } from './routes/_authenticated/dashboard.profile'
 import { Route as AuthenticatedDashboardOrdersRouteImport } from './routes/_authenticated/dashboard.orders'
 import { Route as AuthenticatedDashboardMenuRouteImport } from './routes/_authenticated/dashboard.menu'
@@ -24,6 +27,7 @@ import { Route as AuthenticatedDashboardIntegrationsRouteImport } from './routes
 import { Route as AuthenticatedDashboardAiToolsRouteImport } from './routes/_authenticated/dashboard.ai-tools'
 import { Route as AuthenticatedAdminTablesRouteImport } from './routes/_authenticated/admin.tables'
 import { Route as ApiPublicWebhookPlatformRouteImport } from './routes/api/public/webhook.$platform'
+import { Route as ApiPublicCronDailySummaryRouteImport } from './routes/api/public/cron/daily-summary'
 
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
@@ -60,9 +64,24 @@ const AuthenticatedDashboardIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedDashboardRoute,
   } as any)
+const ApiAiTranslateMenuRoute = ApiAiTranslateMenuRouteImport.update({
+  id: '/api/ai/translate-menu',
+  path: '/api/ai/translate-menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiGenerateSummaryNowRoute = ApiAiGenerateSummaryNowRouteImport.update({
+  id: '/api/ai/generate-summary-now',
+  path: '/api/ai/generate-summary-now',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAiGenerateMenuRoute = ApiAiGenerateMenuRouteImport.update({
   id: '/api/ai/generate-menu',
   path: '/api/ai/generate-menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAiDescribePhotoRoute = ApiAiDescribePhotoRouteImport.update({
+  id: '/api/ai/describe-photo',
+  path: '/api/ai/describe-photo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedDashboardProfileRoute =
@@ -107,6 +126,12 @@ const ApiPublicWebhookPlatformRoute =
     path: '/api/public/webhook/$platform',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCronDailySummaryRoute =
+  ApiPublicCronDailySummaryRouteImport.update({
+    id: '/api/public/cron/daily-summary',
+    path: '/api/public/cron/daily-summary',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -120,8 +145,12 @@ export interface FileRoutesByFullPath {
   '/dashboard/menu': typeof AuthenticatedDashboardMenuRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
+  '/api/ai/describe-photo': typeof ApiAiDescribePhotoRoute
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
+  '/api/ai/generate-summary-now': typeof ApiAiGenerateSummaryNowRoute
+  '/api/ai/translate-menu': typeof ApiAiTranslateMenuRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/api/public/cron/daily-summary': typeof ApiPublicCronDailySummaryRoute
   '/api/public/webhook/$platform': typeof ApiPublicWebhookPlatformRoute
 }
 export interface FileRoutesByTo {
@@ -135,8 +164,12 @@ export interface FileRoutesByTo {
   '/dashboard/menu': typeof AuthenticatedDashboardMenuRoute
   '/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
+  '/api/ai/describe-photo': typeof ApiAiDescribePhotoRoute
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
+  '/api/ai/generate-summary-now': typeof ApiAiGenerateSummaryNowRoute
+  '/api/ai/translate-menu': typeof ApiAiTranslateMenuRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
+  '/api/public/cron/daily-summary': typeof ApiPublicCronDailySummaryRoute
   '/api/public/webhook/$platform': typeof ApiPublicWebhookPlatformRoute
 }
 export interface FileRoutesById {
@@ -153,8 +186,12 @@ export interface FileRoutesById {
   '/_authenticated/dashboard/menu': typeof AuthenticatedDashboardMenuRoute
   '/_authenticated/dashboard/orders': typeof AuthenticatedDashboardOrdersRoute
   '/_authenticated/dashboard/profile': typeof AuthenticatedDashboardProfileRoute
+  '/api/ai/describe-photo': typeof ApiAiDescribePhotoRoute
   '/api/ai/generate-menu': typeof ApiAiGenerateMenuRoute
+  '/api/ai/generate-summary-now': typeof ApiAiGenerateSummaryNowRoute
+  '/api/ai/translate-menu': typeof ApiAiTranslateMenuRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/api/public/cron/daily-summary': typeof ApiPublicCronDailySummaryRoute
   '/api/public/webhook/$platform': typeof ApiPublicWebhookPlatformRoute
 }
 export interface FileRouteTypes {
@@ -171,8 +208,12 @@ export interface FileRouteTypes {
     | '/dashboard/menu'
     | '/dashboard/orders'
     | '/dashboard/profile'
+    | '/api/ai/describe-photo'
     | '/api/ai/generate-menu'
+    | '/api/ai/generate-summary-now'
+    | '/api/ai/translate-menu'
     | '/dashboard/'
+    | '/api/public/cron/daily-summary'
     | '/api/public/webhook/$platform'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -186,8 +227,12 @@ export interface FileRouteTypes {
     | '/dashboard/menu'
     | '/dashboard/orders'
     | '/dashboard/profile'
+    | '/api/ai/describe-photo'
     | '/api/ai/generate-menu'
+    | '/api/ai/generate-summary-now'
+    | '/api/ai/translate-menu'
     | '/dashboard'
+    | '/api/public/cron/daily-summary'
     | '/api/public/webhook/$platform'
   id:
     | '__root__'
@@ -203,8 +248,12 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard/menu'
     | '/_authenticated/dashboard/orders'
     | '/_authenticated/dashboard/profile'
+    | '/api/ai/describe-photo'
     | '/api/ai/generate-menu'
+    | '/api/ai/generate-summary-now'
+    | '/api/ai/translate-menu'
     | '/_authenticated/dashboard/'
+    | '/api/public/cron/daily-summary'
     | '/api/public/webhook/$platform'
   fileRoutesById: FileRoutesById
 }
@@ -214,7 +263,11 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   MSlugRoute: typeof MSlugRoute
+  ApiAiDescribePhotoRoute: typeof ApiAiDescribePhotoRoute
   ApiAiGenerateMenuRoute: typeof ApiAiGenerateMenuRoute
+  ApiAiGenerateSummaryNowRoute: typeof ApiAiGenerateSummaryNowRoute
+  ApiAiTranslateMenuRoute: typeof ApiAiTranslateMenuRoute
+  ApiPublicCronDailySummaryRoute: typeof ApiPublicCronDailySummaryRoute
   ApiPublicWebhookPlatformRoute: typeof ApiPublicWebhookPlatformRoute
 }
 
@@ -269,11 +322,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardIndexRouteImport
       parentRoute: typeof AuthenticatedDashboardRoute
     }
+    '/api/ai/translate-menu': {
+      id: '/api/ai/translate-menu'
+      path: '/api/ai/translate-menu'
+      fullPath: '/api/ai/translate-menu'
+      preLoaderRoute: typeof ApiAiTranslateMenuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/generate-summary-now': {
+      id: '/api/ai/generate-summary-now'
+      path: '/api/ai/generate-summary-now'
+      fullPath: '/api/ai/generate-summary-now'
+      preLoaderRoute: typeof ApiAiGenerateSummaryNowRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/ai/generate-menu': {
       id: '/api/ai/generate-menu'
       path: '/api/ai/generate-menu'
       fullPath: '/api/ai/generate-menu'
       preLoaderRoute: typeof ApiAiGenerateMenuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/ai/describe-photo': {
+      id: '/api/ai/describe-photo'
+      path: '/api/ai/describe-photo'
+      fullPath: '/api/ai/describe-photo'
+      preLoaderRoute: typeof ApiAiDescribePhotoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/dashboard/profile': {
@@ -325,6 +399,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebhookPlatformRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/daily-summary': {
+      id: '/api/public/cron/daily-summary'
+      path: '/api/public/cron/daily-summary'
+      fullPath: '/api/public/cron/daily-summary'
+      preLoaderRoute: typeof ApiPublicCronDailySummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -373,7 +454,11 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   MSlugRoute: MSlugRoute,
+  ApiAiDescribePhotoRoute: ApiAiDescribePhotoRoute,
   ApiAiGenerateMenuRoute: ApiAiGenerateMenuRoute,
+  ApiAiGenerateSummaryNowRoute: ApiAiGenerateSummaryNowRoute,
+  ApiAiTranslateMenuRoute: ApiAiTranslateMenuRoute,
+  ApiPublicCronDailySummaryRoute: ApiPublicCronDailySummaryRoute,
   ApiPublicWebhookPlatformRoute: ApiPublicWebhookPlatformRoute,
 }
 export const routeTree = rootRouteImport

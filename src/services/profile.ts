@@ -30,6 +30,7 @@ export interface ProfileRow {
   tagline: string | null;
   created_at: string;
   updated_at: string;
+  timezone?: string;
 }
 
 export async function getMyProfile(userId: string): Promise<ProfileRow | null> {
@@ -49,6 +50,7 @@ export interface ProfileUpdateInput {
   avatar_url?: string | null;
   slug?: string | null;
   tagline?: string | null;
+  timezone?: string;
 }
 
 export async function updateMyProfile(userId: string, input: ProfileUpdateInput): Promise<ProfileRow> {
