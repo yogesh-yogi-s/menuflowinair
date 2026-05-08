@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
-import { translateBatch } from "@/server/ai/gemini.server";
+import { translateMenuBatch } from "@/server/ai/lovable-ai.server";
 
 export const Route = createFileRoute("/api/ai/translate-menu")({
   server: {
@@ -77,14 +77,14 @@ export const Route = createFileRoute("/api/ai/translate-menu")({
             return Response.json({ items_inserted: 0, categories_inserted: 0 });
           }
 
-          const result = await translateBatch(
+          const result = await translateMenuBatch(
             locale,
             toTranslateItems,
             toTranslateCats,
           );
 
           // Upsert translations.
-          const itemRows = result.items.map((t) => ({
+          const itemRows = result.items.map((t: { id: string; name: string; description: string }) => ({
             menu_item_id: t.id,
             owner_id: userId,
             locale,
@@ -92,7 +92,7 @@ export const Route = createFileRoute("/api/ai/translate-menu")({
             description: t.description || null,
             ai_generated: true,
           }));
-          const catRows = result.categories.map((t) => ({
+          const catRows = result.categories.map((t: { id: string; name: string }) => ({
             category_id: t.id,
             owner_id: userId,
             locale,
