@@ -27,7 +27,6 @@ import {
   type RangeKey,
 } from "@/services/analytics";
 import { useRealtimeTable } from "@/hooks/use-realtime";
-import { YesterdaySummaryCard } from "@/components/dashboard/YesterdaySummaryCard";
 
 export const Route = createFileRoute("/_authenticated/dashboard/")({
   head: () => ({ meta: [{ title: "Overview — MenuFlow" }] }),
@@ -87,8 +86,6 @@ function DashboardOverview() {
           </TabsList>
         </Tabs>
       </div>
-
-      <YesterdaySummaryCard />
 
       {/* KPI strip */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

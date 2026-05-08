@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
-import { describeImage } from "@/server/ai/gemini.server";
+import { describeImageFromUrl } from "@/server/ai/lovable-ai.server";
 
 export const Route = createFileRoute("/api/ai/describe-photo")({
   server: {
@@ -31,7 +31,7 @@ export const Route = createFileRoute("/api/ai/describe-photo")({
             return Response.json({ error: "image_url is too long" }, { status: 400 });
           }
 
-          const dish = await describeImage(image_url);
+          const dish = await describeImageFromUrl(image_url);
           return Response.json({ dish });
         } catch (e) {
           const err = e as Error & { status?: number };
