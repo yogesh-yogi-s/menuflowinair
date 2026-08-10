@@ -1,0 +1,330 @@
+{
+  "version": 1,
+  "sdk_version": "0.26.1",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://project-ref-unset.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "menu-flow-in-air",
+      "version": "0.1.0",
+      "title": "Menu flow In air"
+    },
+    "tools": [
+      {
+        "name": "list_menu_items",
+        "title": "List menu items",
+        "description": "List the signed-in restaurant's menu items, optionally filtered by availability or a name search.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "search": {
+              "type": "string",
+              "description": "Case-insensitive match on the item name."
+            },
+            "available_only": {
+              "type": "boolean",
+              "description": "Only return items currently available."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Max rows to return (default 50)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_menu_item",
+        "title": "Create menu item",
+        "description": "Add a new dish to the signed-in restaurant's menu.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "description": "Dish name."
+            },
+            "price": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Price in the restaurant's currency."
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 600,
+              "description": "Short menu description."
+            },
+            "category_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Category id from list_categories."
+            },
+            "available": {
+              "type": "boolean",
+              "description": "Whether the dish is currently orderable."
+            },
+            "image_url": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 2000,
+              "description": "Public photo URL for the dish."
+            }
+          },
+          "required": [
+            "name",
+            "price"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_menu_item",
+        "title": "Update menu item",
+        "description": "Update fields on an existing menu item, such as its price, description, category, or availability.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Menu item id from list_menu_items."
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "price": {
+              "type": "number",
+              "minimum": 0
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 600
+            },
+            "category_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "available": {
+              "type": "boolean"
+            },
+            "image_url": {
+              "type": "string",
+              "format": "uri",
+              "maxLength": 2000
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "delete_menu_item",
+        "title": "Delete menu item",
+        "description": "Permanently remove a menu item from the signed-in restaurant's menu.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Menu item id from list_menu_items."
+            }
+          },
+          "required": [
+            "id"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_categories",
+        "title": "List menu categories",
+        "description": "List the signed-in restaurant's menu categories (Starters, Mains, Desserts, ...) with their ids.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_category",
+        "title": "Create menu category",
+        "description": "Create a new menu category for grouping dishes.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "Category name, e.g. Starters."
+            },
+            "sort_order": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999,
+              "description": "Display position."
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_integrations",
+        "title": "List delivery integrations",
+        "description": "List the signed-in restaurant's delivery-platform integrations with their connection and sync status.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_orders",
+        "title": "List platform orders",
+        "description": "List recent delivery-platform orders (Zomato, Swiggy, Uber Eats, ...) for the signed-in restaurant.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "description": "Filter by order status, e.g. pending, accepted, ready, completed, rejected."
+            },
+            "platform": {
+              "type": "string",
+              "description": "Filter by platform name."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Max rows to return (default 25)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_order_status",
+        "title": "Update order status",
+        "description": "Move a platform order through its lifecycle: accepted, preparing, ready, completed, or rejected.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Order id from list_orders."
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "accepted",
+                "preparing",
+                "ready",
+                "completed",
+                "rejected"
+              ],
+              "description": "New order status."
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 300,
+              "description": "Reason, required when rejecting."
+            }
+          },
+          "required": [
+            "id",
+            "status"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
