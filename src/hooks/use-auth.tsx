@@ -81,8 +81,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         return { error: error as Error | null };
       },
-      signUp: async (email, password, meta) => {
-        const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/dashboard` : undefined;
+      signUp: async (email, password, meta, redirectPath) => {
+        const target = redirectPath && redirectPath.startsWith("/") && !redirectPath.startsWith("//")
+          ? redirectPath
+          : "/dashboard";
+        const redirectTo = typeof window !== "undefined" ? `${window.location.origin}${target}` : undefined;
         const { error } = await supabase.auth.signUp({
           email,
           password,
