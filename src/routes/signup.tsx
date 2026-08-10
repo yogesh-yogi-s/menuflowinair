@@ -10,6 +10,9 @@ import { useAuth } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Sign up — MenuFlow" }] }),
+  validateSearch: (s: Record<string, unknown>): { redirect?: string } => ({
+    redirect: typeof s.redirect === "string" ? s.redirect : undefined,
+  }),
   component: SignupPage,
 });
 
@@ -17,22 +20,25 @@ function SignupPage() {
   const [form, setForm] = useState({ name: "", restaurant_name: "", email: "", password: "" });
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+  const search = Route.useSearch();
   const { signUp } = useAuth();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
-    const { error } = await signUp(form.email, form.password, {
-      full_name: form.name,
-      restaurant_name: form.restaurant_name,
-    });
+    const { error } = await signUp(
+      form.email,
+      form.password,
+      { full_name: form.name, restaurant_name: form.restaurant_name },
+      search.redirect,
+    );
     setBusy(false);
     if (error) {
       toast.error(error.message);
       return;
     }
     toast.success("Account created — check your email if confirmation is required.");
-    navigate({ to: "/dashboard" });
+    navigate({ to: search.redirect ?? "/dashboard" });
   };
 
   const update = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
