@@ -13,7 +13,12 @@ interface AuthContextValue {
   isAdmin: boolean;
   refreshProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, meta?: { full_name?: string; restaurant_name?: string }) => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    meta?: { full_name?: string; restaurant_name?: string },
+    redirectPath?: string,
+  ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
 }
 
